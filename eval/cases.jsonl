@@ -1,0 +1,17 @@
+{"id": "norway", "question": "What's the capital of Norway?", "expect": ["oslo"]}
+{"id": "http", "question": "What does HTTP stand for?", "expect": ["hypertext transfer protocol"]}
+{"id": "greet", "question": "Hi, how are you?"}
+{"id": "train", "question": "A train leaves at 14:10 going 80 km/h; a second leaves at 14:40 going 120 km/h on the same track. When does the second catch up? Show steps.", "expect": ["15:40"]}
+{"id": "sqrt2", "question": "Prove that the square root of 2 is irrational.", "expect": ["contradiction"]}
+{"id": "bash", "question": "Write a bash one-liner that lists files in the current directory by size, largest first.", "expect": ["ls"]}
+{"id": "asyncdebug", "question": "My Python asyncio server deadlocks under load only when two clients upload at once. What could cause it and how do I debug it?", "expect": ["lock"]}
+{"id": "poem", "question": "Write a short poem about autumn in Bergen."}
+{"id": "srv-cacheram", "question": "What is the default value of --cache-ram?", "context": "docs/llama-server-README.md", "expect": ["8192"]}
+{"id": "srv-modelsmax", "question": "In router mode, which option limits how many models are loaded at the same time, and what is its default?", "context": "docs/llama-server-README.md", "expect": ["models-max", "4"]}
+{"id": "srv-load", "question": "Which HTTP endpoint loads a model in router mode?", "context": "docs/llama-server-README.md", "expect": ["/models/load"]}
+{"id": "srv-ckpt", "question": "How many context checkpoints per slot does the server create by default?", "context": "docs/llama-server-README.md", "expect": ["32"]}
+{"id": "srv-router", "question": "Explain how router mode works: how models are found, configured with presets, and how requests get routed to them.", "context": "docs/llama-server-README.md", "expect": ["preset", "model"]}
+{"id": "srv-summary", "question": "Summarize this document.", "context": "docs/llama-server-README.md"}
+{"id": "laya-cpu", "question": "Where does Laya run, and why was that chosen?", "context": "docs/laya-README.md", "expect": ["cpu"]}
+{"id": "laya-cpu-follow", "followup": true, "question": "And how long does one Laya decision take there?", "context": "docs/laya-README.md", "expect": ["300"]}
+{"id": "laya-overview", "question": "Give me an overview of this project: what it does, how the pipeline works, and its limits.", "context": "docs/laya-README.md"}

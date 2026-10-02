@@ -112,8 +112,14 @@ def _gpu():
 
 
 def _lmstudio():
-    base = config.LMSTUDIO_URL.removesuffix("/v1")
+    """Model server status (LM Studio or the llama-server router), in one shape for the header."""
+    base = config.LLM_URL.removesuffix("/v1")
     try:
+        if config.BACKEND == "llamacpp":
+            data = httpx.get(f"{base}/models", timeout=2).json()["data"]
+            return {"up": True, "models": [
+                {"id": m["id"], "state": "loaded" if (m.get("status") or {}).get("value") == "loaded" else "not-loaded",
+                 "type": "embeddings" if "embed" in m["id"] else "llm", "quant": None} for m in data]}
         data = httpx.get(f"{base}/api/v0/models", timeout=2).json()["data"]
         return {"up": True, "models": [{"id": m["id"], "state": m.get("state"), "type": m.get("type"),
                                         "quant": m.get("quantization")} for m in data]}
@@ -129,7 +135,8 @@ def status():
         "config": {"small": config.SMALL_MODEL, "big": config.BIG_MODEL,
                    "hard_min_prob": config.HARD_MIN_PROB, "task_min_prob": config.TASK_MIN_PROB,
                    "bad_answer_min_prob": config.BAD_ANSWER_MIN_PROB,
-                   "relevance_min_prob": config.RELEVANCE_MIN_PROB, "keep_chunks": config.KEEP_CHUNKS},
+                   "relevance_min_prob": config.RELEVANCE_MIN_PROB, "keep_chunks": config.KEEP_CHUNKS,
+                   "backend": config.BACKEND},
     }
 
 

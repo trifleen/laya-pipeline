@@ -53,10 +53,57 @@ def ensure_lmstudio_server():
         return False
 
 
+# ---- llama.cpp ---------------------------------------------------------------------------------
+
+def ensure_llamacpp_server(wait_s=180):
+    """Start the llama-server router (config.LLAMACPP_SERVE) unless something already answers.
+
+    It keeps running after the dashboard stops, like LM Studio's server; stop it with
+    `pkill -f llama-server`.
+    """
+    base = config.LLM_URL.removesuffix("/v1")
+    try:
+        _get(f"{base}/models")
+        return True
+    except Exception:
+        pass
+    serve = Path(config.LLAMACPP_SERVE)
+    if not serve.exists():
+        print(f"✗ No llama-server at {base} and no start script at {serve} (set LLAMACPP_SERVE).")
+        return False
+    config.LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log = (config.LOG_DIR / "llama-server.log").open("ab")
+    subprocess.Popen([str(serve)], stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
+    print(f"Starting llama-server ({serve}), log: {config.LOG_DIR / 'llama-server.log'}…")
+    wanted = {config.SMALL_MODEL, config.BIG_MODEL, config.EMBED_MODEL}
+    for _ in range(wait_s * 2):
+        try:
+            loaded = {m["id"] for m in _get(f"{base}/models")["data"]
+                      if (m.get("status") or {}).get("value") == "loaded"}
+            if wanted <= loaded:
+                print("✓ llama-server ready: " + ", ".join(sorted(wanted)))
+                return True
+        except Exception:
+            pass
+        time.sleep(0.5)
+    print("✗ llama-server didn't load every model in time; see the log above.")
+    return False
+
+
+def ensure_model_server():
+    return ensure_llamacpp_server() if config.BACKEND == "llamacpp" else ensure_lmstudio_server()
+
+
 # ---- setup -----------------------------------------------------------------------------------
 
 def setup(args):
     """Download the LLMs and Laya's weights, then check everything."""
+    if config.BACKEND == "llamacpp":
+        # The GGUFs and llama.cpp build live in the moe-offload project (its serve/models.ini).
+        if not ensure_llamacpp_server():
+            sys.exit(1)
+        _setup_laya(args)
+        return
     if not ensure_lmstudio_server():
         sys.exit(1)
     lms = find_lms()
@@ -73,6 +120,10 @@ def setup(args):
             print(f"✗ Download of {download} failed. Try it in the LM Studio app, then rerun setup.")
             sys.exit(1)
 
+    _setup_laya(args)
+
+
+def _setup_laya(args):
     print("↓ Loading Laya (downloads ~800 MB from Hugging Face the first time)…")
     from .pipeline import questions, router
 
@@ -111,9 +162,9 @@ def _stop_running(url, pid):
 
 
 def up(args):
-    """Start LM Studio's server and the dashboard, open it, stay in the foreground."""
+    """Start the model server and the dashboard, open it, stay in the foreground."""
     url = f"http://localhost:{args.port}"
-    ensure_lmstudio_server()  # the dashboard still starts without it, and says so in its header
+    ensure_model_server()  # the dashboard still starts without it, and says so in its header
 
     try:
         running = _get(f"{url}/api/version")

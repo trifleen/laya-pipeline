@@ -12,7 +12,7 @@
   <nav class="tabs" id="tabs">
     <button data-tab="live" class="on">Live</button><button data-tab="lab">Lab</button><button data-tab="stats">Stats</button>
   </nav>
-  <span class="chip"><span class="dot" id="lm-dot"></span>LM Studio <b id="lm-txt">…</b></span>
+  <span class="chip"><span class="dot" id="lm-dot"></span><span id="lm-name">Models</span> <b id="lm-txt">…</b></span>
   <span class="chip"><span class="dot" id="laya-dot"></span>Laya <b id="laya-txt">…</b></span>
   <span class="chip">VRAM <span class="meter"><i id="vram-bar" style="width:0"></i></span><b id="vram-txt">…</b></span>
   <span class="chip" id="gpu-extra"></span>
@@ -70,6 +70,7 @@
         <div class="stat"><div class="v" id="s-tps">–</div><div class="k">tokens / s</div></div>
         <div class="stat"><div class="v" id="s-ans">–</div><div class="k">answer tokens</div></div>
         <div class="stat"><div class="v" id="s-think">–</div><div class="k">thinking tokens</div></div>
+        <div class="stat"><div class="v" id="s-prompt">–</div><div class="k">prompt read / cached</div></div>
       </div>
     </section>
 
