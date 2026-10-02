@@ -17,3 +17,6 @@ logs/
 
 # Presets rendered by serve/serve.sh
 serve/.generated/
+
+# Built locally by tools/expert-trace/build.sh
+tools/expert-trace/expert-trace

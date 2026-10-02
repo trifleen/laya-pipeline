@@ -1,0 +1,57 @@
+{"id": "norway", "question": "What's the capital of Norway?", "intended": "eval", "has_doc": false, "laya_task": "factual", "p_task": 0.748}
+{"id": "http", "question": "What does HTTP stand for?", "intended": "eval", "has_doc": false, "laya_task": "factual", "p_task": 0.452}
+{"id": "greet", "question": "Hi, how are you?", "intended": "eval", "has_doc": false, "laya_task": "chat", "p_task": 0.88}
+{"id": "train", "question": "A train leaves at 14:10 going 80 km/h; a second leaves at 14:40 going 120 km/h on the same track. When does the second catch up? Show steps.", "intended": "eval", "has_doc": false, "laya_task": "factual", "p_task": 0.575}
+{"id": "sqrt2", "question": "Prove that the square root of 2 is irrational.", "intended": "eval", "has_doc": false, "laya_task": "factual", "p_task": 0.516}
+{"id": "bash", "question": "Write a bash one-liner that lists files in the current directory by size, largest first.", "intended": "eval", "has_doc": false, "laya_task": "code", "p_task": 0.905}
+{"id": "asyncdebug", "question": "My Python asyncio server deadlocks under load only when two clients upload at once. What could cause it and how do I debug it?", "intended": "eval", "has_doc": false, "laya_task": "code", "p_task": 0.93}
+{"id": "poem", "question": "Write a short poem about autumn in Bergen.", "intended": "eval", "has_doc": false, "laya_task": "creative", "p_task": 0.929}
+{"id": "srv-cacheram", "question": "What is the default value of --cache-ram?", "intended": "document", "has_doc": true, "laya_task": "code", "p_task": 0.637}
+{"id": "srv-modelsmax", "question": "In router mode, which option limits how many models are loaded at the same time, and what is its default?", "intended": "document", "has_doc": true, "laya_task": "code", "p_task": 0.516}
+{"id": "srv-load", "question": "Which HTTP endpoint loads a model in router mode?", "intended": "document", "has_doc": true, "laya_task": "code", "p_task": 0.897}
+{"id": "srv-ckpt", "question": "How many context checkpoints per slot does the server create by default?", "intended": "document", "has_doc": true, "laya_task": "code", "p_task": 0.747}
+{"id": "srv-router", "question": "Explain how router mode works: how models are found, configured with presets, and how requests get routed to them.", "intended": "document", "has_doc": true, "laya_task": "code", "p_task": 0.508}
+{"id": "srv-summary", "question": "Summarize this document.", "intended": "document", "has_doc": true, "laya_task": "factual", "p_task": 0.385}
+{"id": "laya-cpu", "question": "Where does Laya run, and why was that chosen?", "intended": "document", "has_doc": true, "laya_task": "factual", "p_task": 0.481}
+{"id": "laya-cpu-follow", "question": "And how long does one Laya decision take there?", "intended": "document", "has_doc": true, "laya_task": "factual", "p_task": 0.328}
+{"id": "laya-overview", "question": "Give me an overview of this project: what it does, how the pipeline works, and its limits.", "intended": "document", "has_doc": true, "laya_task": "factual", "p_task": 0.512}
+{"id": "code-0", "question": "Write a Python function that merges two sorted lists in linear time.", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.967}
+{"id": "code-1", "question": "Why does this JavaScript print 3 three times? for (var i = 0; i < 3; i++) setTimeout(() => console.log(i));", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.961}
+{"id": "code-2", "question": "Write a SQL query that returns the second highest salary per department.", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.912}
+{"id": "code-3", "question": "Explain the difference between a mutex and a semaphore with a C example.", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.827}
+{"id": "code-4", "question": "Write a Rust function that parses '12:34:56' into seconds and returns a Result.", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.917}
+{"id": "code-5", "question": "My Docker container exits immediately with code 0. How do I find out why?", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.952}
+{"id": "code-6", "question": "Write a bash script that backs up ~/Documents to a dated tar.gz and keeps the last 7.", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.9}
+{"id": "code-7", "question": "Refactor this to be more idiomatic Python: result = []\nfor x in data:\n    if x % 2 == 0:\n        result.append(x * x)", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.924}
+{"id": "code-8", "question": "How do I fix 'TypeError: Cannot read properties of undefined (reading map)' in React?", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.951}
+{"id": "code-9", "question": "Implement an LRU cache in Go with Get and Put in O(1).", "intended": "code", "has_doc": false, "laya_task": "code", "p_task": 0.947}
+{"id": "factual-0", "question": "Why is the sky blue?", "intended": "factual", "has_doc": false, "laya_task": "factual", "p_task": 0.614}
+{"id": "factual-1", "question": "What caused the fall of the Western Roman Empire?", "intended": "factual", "has_doc": false, "laya_task": "factual", "p_task": 0.692}
+{"id": "factual-2", "question": "How does a heat pump move heat from a cold place to a warm one?", "intended": "factual", "has_doc": false, "laya_task": "factual", "p_task": 0.505}
+{"id": "factual-3", "question": "What is the difference between a virus and a bacterium?", "intended": "factual", "has_doc": false, "laya_task": "factual", "p_task": 0.463}
+{"id": "factual-4", "question": "Explain how vaccines train the immune system.", "intended": "factual", "has_doc": false, "laya_task": "factual", "p_task": 0.447}
+{"id": "factual-5", "question": "What is 17% of 2,350? Show the calculation.", "intended": "factual", "has_doc": false, "laya_task": "code", "p_task": 0.486}
+{"id": "factual-6", "question": "Solve for x: 3x^2 - 12x + 9 = 0.", "intended": "factual", "has_doc": false, "laya_task": "code", "p_task": 0.574}
+{"id": "factual-7", "question": "A tank fills in 6 hours with pipe A and 4 hours with pipe B. How long with both?", "intended": "factual", "has_doc": false, "laya_task": "code", "p_task": 0.505}
+{"id": "factual-8", "question": "What is the integral of x * e^x?", "intended": "factual", "has_doc": false, "laya_task": "code", "p_task": 0.695}
+{"id": "factual-9", "question": "How many ways can 5 people sit in a row if two of them must sit together?", "intended": "factual", "has_doc": false, "laya_task": "chat", "p_task": 0.586}
+{"id": "creative-0", "question": "Write a haiku about a server room at night.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.741}
+{"id": "creative-1", "question": "Write the opening paragraph of a mystery novel set in a fishing village in northern Norway.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.939}
+{"id": "creative-2", "question": "Invent a name and a slogan for a coffee shop run by retired astronauts.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.653}
+{"id": "creative-3", "question": "Write a limerick about a cat who learns to code.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.79}
+{"id": "creative-4", "question": "Describe a sunrise over the fjords for a travel brochure, in 80 words.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.773}
+{"id": "creative-5", "question": "Write a short bedtime story about a robot who is afraid of the dark.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.821}
+{"id": "creative-6", "question": "Brainstorm ten names for a board game about trading spices.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.699}
+{"id": "creative-7", "question": "Write a toast for my best friend's wedding, warm and a little funny.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.778}
+{"id": "creative-8", "question": "Write a product description for noise-cancelling headphones aimed at students.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.791}
+{"id": "creative-9", "question": "Write a dialogue between a lighthouse and the moon.", "intended": "creative", "has_doc": false, "laya_task": "creative", "p_task": 0.834}
+{"id": "chat-0", "question": "Good morning! What's a nice way to start a rainy Saturday?", "intended": "chat", "has_doc": false, "laya_task": "chat", "p_task": 0.433}
+{"id": "chat-1", "question": "I'm feeling a bit stressed about my exams. Any advice?", "intended": "chat", "has_doc": false, "laya_task": "factual", "p_task": 0.365}
+{"id": "chat-2", "question": "What's your favourite season and why?", "intended": "chat", "has_doc": false, "laya_task": "factual", "p_task": 0.604}
+{"id": "chat-3", "question": "Can you recommend a few podcasts about history?", "intended": "chat", "has_doc": false, "laya_task": "factual", "p_task": 0.564}
+{"id": "chat-4", "question": "Thanks for the help yesterday!", "intended": "chat", "has_doc": false, "laya_task": "chat", "p_task": 0.412}
+{"id": "chat-5", "question": "I just adopted a puppy. Any tips for the first week?", "intended": "chat", "has_doc": false, "laya_task": "chat", "p_task": 0.427}
+{"id": "chat-6", "question": "Do you think it's better to read the book or watch the movie first?", "intended": "chat", "has_doc": false, "laya_task": "factual", "p_task": 0.541}
+{"id": "chat-7", "question": "What should I cook tonight with eggs, spinach and feta?", "intended": "chat", "has_doc": false, "laya_task": "chat", "p_task": 0.45}
+{"id": "chat-8", "question": "I'm bored. Suggest something fun to do indoors.", "intended": "chat", "has_doc": false, "laya_task": "chat", "p_task": 0.75}
+{"id": "chat-9", "question": "How do I politely decline an invitation to a party?", "intended": "chat", "has_doc": false, "laya_task": "chat", "p_task": 0.602}
