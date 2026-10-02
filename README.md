@@ -2,134 +2,63 @@
 
 **A tiny classifier makes the decisions, your local LLMs do the writing.**
 
-Every request to your local models first goes through [Laya](https://huggingface.co/convaiinnovations/laya), a 420M-parameter decision model that answers typed questions in about 300 ms on a CPU. It decides which context to keep, which model to use, whether that model should think first, and whether the answer is good enough. Large models in [LM Studio](https://lmstudio.ai) then generate the answer. A live dashboard shows each decision as it happens, and the Lab tab lets you tune Laya on your own labels.
+Every request first goes through [Laya](https://huggingface.co/convaiinnovations/laya), a 420M-parameter decision model. In a fraction of a second (20–150 ms) it decides which parts of your files to keep, which model should answer, whether that model should think first, and whether the answer is good enough. The writing is done by local models: by default a fast 4B model, plus a 35B model that runs on an 8 GB graphics card by keeping most of itself in RAM. A live dashboard shows every decision as it happens.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/img/live-dark.png">
   <img alt="The live dashboard: pipeline stages, timeline with GPU memory and power, Laya's routing probabilities, the streamed answer, the answer check and the context-compression chunk map" src="docs/img/live-light.png">
 </picture>
 
----
-
-## Contents
-
-- [Why](#why)
-- [How a request flows](#how-a-request-flows)
-- [The four stages](#the-four-stages)
-- [Quick start](#quick-start)
-- [The dashboard](#the-dashboard)
-- [Teaching Laya: the feedback loop](#teaching-laya-the-feedback-loop)
-- [Architecture](#architecture)
-- [Commands](#commands)
-- [Configuration](#configuration)
-- [Hardware notes](#hardware-notes)
-- [Honest limits](#honest-limits)
-- [Project layout](#project-layout)
-- [Credits and license](#credits-and-license)
-
----
-
 ## Why
 
-Running local models on a consumer GPU means trade-offs everywhere:
+A small model is fast but weak, a big one is good but slow, "thinking" helps only hard questions, and long files drown the question. Each request needs a few quick decisions. Asking an LLM to make them costs as much as the answer itself. Laya is a classifier: it only picks from options, so it can't make things up, and it's cheap enough to put in front of every request.
 
-- **A small model is fast but weak; a big model is good but slow.** You want the big one only when the request needs it.
-- **"Thinking" models can spend hundreds of hidden tokens** on a one-line question. Thinking should be switched on for hard problems only.
-- **Long documents don't fit,** or they drown the question. Only the relevant parts should reach the model.
-- **Sometimes the answer misses the point.** Ideally something checks it and retries on the stronger setup.
+## How it works
 
-Asking an LLM to make these decisions costs as much as the answer itself. Laya is a classifier, not a generator, so it can't hallucinate. It returns a probability for each option in a single forward pass. That makes it cheap enough to put in front of every request.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/diagram-flow-dark.svg">
+  <img alt="A request flows through four stages. 1 Compress: files are cut into chunks and the helpful ones kept (embedder and Laya). 2 Route: Laya picks the model and whether it should think first. 3 Generate: the 4B or 35B model writes the answer. 4 Check: Laya asks whether the answer addresses the question; if it's flagged, the request is retried once on the 35B model with thinking on. A glossary explains Laya, chunk, embedder, the 4B and 35B models, and thinking." src="docs/img/diagram-flow-light.svg">
+</picture>
 
-## How a request flows
+When Laya isn't sure, the pipeline falls back to safe defaults instead of trusting a guess. The thresholds can be tuned in the dashboard's Lab tab.
 
-```mermaid
-flowchart LR
-    Q([Your question<br/>+ optional documents]) --> C
-    subgraph Pipeline
-        direction LR
-        C["1 · Compress<br/><small>embeddings rank chunks,<br/>Laya rescues borderline ones</small>"]
-        R["2 · Route<br/><small>Laya: task type?<br/>needs thinking?</small>"]
-        G["3 · Generate<br/><small>LM Studio streams<br/>the answer</small>"]
-        K["4 · Check<br/><small>Laya: does it answer<br/>the question?</small>"]
-        C --> R --> G --> K
-    end
-    K -- looks good --> A([Answer])
-    K -- flagged --> RT["Retry<br/><small>big model + thinking</small>"] --> A
-```
+## What runs where
 
-Laya runs on the **GPU in 16-bit** next to the language models (~0.9 GB of VRAM): about 20 ms per routing decision and 130 ms to judge six context chunks, 25–40× faster than on the CPU. With `LAYA_DEVICE=cpu` it takes ~0.4 s per decision and ~0.8 s per chunk instead.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/diagram-memory-dark.svg">
+  <img alt="Memory map to scale. GPU memory (8 GB, very fast): Qwen 35B core 3.1 GB used for every word, Nemotron 4B 3 GB, Laya about 1 GB, embedder 0.3 GB. System RAM (30 GB, about 10 times slower for the GPU): Qwen 35B experts about 19 GB, everything else 5.5 GB. Each word uses only 8 of 256 experts per layer, so the GPU reads about 0.6 GB from RAM per word, giving 40 to 50 words per second. A glossary explains GPU memory, system RAM, parameters, experts, tokens and layers." src="docs/img/diagram-memory-light.svg">
+</picture>
 
-## The four stages
+## Results
 
-### ① Compress: only relevant context reaches the model
+Measured with `./laya eval` on 17 requests, 9 of them about attached documents ([`eval/cases.jsonl`](eval/cases.jsonl)). *Before* is the same models with Laya on the CPU and the pipeline's speed-ups switched off.
 
-When you attach documents, they're split into chunks of about 1,200 characters. An embedding model ranks every chunk against your question. The best few are kept outright. The next tier is borderline, and Laya judges each borderline chunk on its own: *"does this passage help answer the question?"*
+| | before | after |
+|---|---|---|
+| Median wait for the first word | 7.4 s | **0.8 s** |
+| … with a document attached | 12.5 s | **4.2 s** |
+| Expected facts found in the answers | 11 / 13 | **12 / 13** |
 
-```mermaid
-flowchart TD
-    D["📄 Documents<br/>e.g. 23 chunks"] --> E["Embedding similarity<br/><small>nomic-embed, bundled with LM Studio</small>"]
-    E --> T["Top 2<br/>kept outright"]
-    E --> B["Next 8: borderline"]
-    E --> X["The rest: dropped"]
-    B --> L{"Laya:<br/>p(relevant) ≥ 60%?"}
-    L -- yes --> K["Rescued"]
-    L -- no --> N["Rejected"]
-    T --> M["Context sent to the model<br/>e.g. 4 of 23 chunks"]
-    K --> M
-```
-
-### ② Route: pick the model, the thinking mode and the temperature
-
-Laya answers two questions in one pass: *what kind of request is this* (code, factual, creative, chat) and *how much thinking does a good answer need*. Thresholds turn those probabilities into settings. When Laya isn't sure, the pipeline falls back to safe defaults instead of trusting a guess.
-
-```mermaid
-flowchart TD
-    Q[Request] --> L["Laya, one forward pass"]
-    L --> H{"p(hard) ≥ 60%?"}
-    H -- yes --> BIG["Big model<br/>thinking ON"]
-    H -- no --> S{"Task type sure?<br/>p ≥ 50%"}
-    S -- "yes, code" --> BIGN["Big model<br/>thinking off"]
-    S -- "yes, other" --> SM["Small model<br/>temperature for that task<br/><small>factual 0.2 · creative 0.9 · chat 0.7</small>"]
-    S -- no --> UN["Small model<br/>neutral temperature 0.4"]
-```
-
-With documents attached, the temperature is capped at 0.3 and the model is told to answer from the context or say it can't.
-
-### ③ Generate
-
-[LM Studio](https://lmstudio.ai) serves the models through its OpenAI-compatible API, loading and unloading them on demand. The answer streams into the dashboard token by token. If thinking is on, the model's reasoning streams into a collapsible box.
-
-### ④ Check and retry
-
-Laya reads the question and the answer and estimates *p(bad answer)*. At 70% or above, the pipeline retries once on the big model with thinking on.
+How we got there, with 22 hypotheses tested along the way (including the ideas that didn't work): [**the experiment log**](docs/experiments/2026-10-02-moe-offload.md).
 
 ## Quick start
 
-### You need
-
-| | |
-|---|---|
-| **[LM Studio](https://lmstudio.ai)** | Runs the language models. Install it and open it once, which also installs its `lms` command. |
-| **[uv](https://docs.astral.sh/uv/getting-started/installation/)** | Python package manager. It installs Python 3.12+ and every dependency for you. |
-| **Disk space** | About 11 GB for the two default models, plus about 5 GB of Python packages (PyTorch). |
-| **GPU** | Optional but strongly recommended. Tested on an 8 GB laptop RTX 3070. Laya itself runs on the CPU. |
-
-### Run it
+You need [uv](https://docs.astral.sh/uv/getting-started/installation/) (it installs Python and every dependency), an NVIDIA GPU with 8 GB, and ~30 GB of RAM for the default setup.
 
 ```bash
 git clone https://github.com/trifleen/laya-pipeline.git
 cd laya-pipeline
-./laya setup     # one time: downloads the models via LM Studio and Laya's weights, then checks everything
-./laya           # starts LM Studio's server and the dashboard, opens http://localhost:8765
+# 1. build llama.cpp and download the models: see serve/README.md (~25 GB)
+# 2. then:
+LLAMA_CPP=~/src/llama.cpp MODELS=~/models ./laya setup   # loads Laya, checks everything
+LLAMA_CPP=~/src/llama.cpp MODELS=~/models ./laya         # starts the model server + dashboard
 ```
 
-That's it. Press **Ctrl+C** to stop. Running `./laya` again reuses a dashboard that's already running, and restarts it automatically if the code has changed.
+The dashboard opens at http://localhost:8765. Press **Ctrl+C** to stop.
 
-> **Without bash** (for example on Windows): use `uv run laya-pipeline setup` and `uv run laya-pipeline up`.
->
-> **Run `laya` from any folder:** `ln -s "$PWD/laya" ~/.local/bin/laya`
+**Less hardware?** `LAYA_BACKEND=lmstudio ./laya` uses [LM Studio](https://lmstudio.ai) with a 4B and a 9B model instead (~11 GB download, swaps models on an 8 GB GPU).
 
-### Prefer the terminal?
+**In the terminal:**
 
 ```bash
 ./laya ask "What's the difference between TCP and UDP?"
@@ -137,220 +66,76 @@ That's it. Press **Ctrl+C** to stop. Running `./laya` again reuses a dashboard t
 ./laya chat -c notes.md
 ```
 
-After each answer, a dimmed line shows Laya's routing decision and the timings.
-
 ## The dashboard
 
-### Live: watch each decision as it happens
-
 <table>
 <tr>
-<td width="50%">
+<td width="50%" valign="top">
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/routing-dark.png"><img alt="Routing card: probability bars per task type with the 50% 'sure' threshold, the 'hard' bar with its 60% threshold, and the resulting model, thinking and temperature" src="docs/img/routing-light.png"></picture>
-<p><b>Routing:</b> Laya's probabilities, with each threshold drawn in, and the resulting model, thinking mode and temperature.</p>
+<p><b>Routing:</b> Laya's probabilities, each threshold drawn in, and what it decided.</p>
 </td>
-<td width="50%">
+<td width="50%" valign="top">
 <picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/compression-dark.png"><img alt="Compression card: 23 chunk blocks coloured kept, rescued by Laya, rejected or dropped, with one rescued chunk opened showing its similarity and Laya score" src="docs/img/compression-light.png"></picture>
-<p><b>Compression:</b> every chunk of your documents, coloured by what happened to it. Click one to read it with its scores.</p>
+<p><b>Compression:</b> every chunk of your files, coloured by what happened to it.</p>
 </td>
 </tr>
-</table>
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/timeline-dark.png"><img alt="Timeline: compress, route, model load and generation segments on one time axis, with VRAM and GPU power charts underneath" src="docs/img/timeline-light.png"></picture>
-
-**Timeline:** where the time went in each run. Model loading is shown separately from generating, and VRAM and GPU power are sampled every 250 ms underneath. In the run above, most of the 17 s went to compression, because the embedding model had to load first. The GPU only reached full power during generation.
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/history-dark.png"><img alt="History table with one run expanded: its answer, its timeline, and buttons to label each of Laya's decisions" src="docs/img/history-light.png"></picture>
-
-**History:** every past run. Expand one to see its timeline and to **label Laya's decisions** with one click. Those labels feed the Lab.
-
-### Lab: make Laya better at *your* requests
-
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/lab-whatif-dark.png"><img alt="What-if panel: one slider per threshold over a strip of past decisions coloured by label, with impact counts and an accuracy-by-threshold curve" src="docs/img/lab-whatif-light.png"></picture>
-
-**What if…:** drag any threshold and see which past decisions would change. Each dot is one decision, coloured by your label. The panel also shows how many past runs would be routed differently, and an accuracy-by-threshold curve. Nothing changes until you click **Save**.
-
-<table>
 <tr>
 <td width="50%" valign="top">
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/lab-calibration-dark.png"><img alt="Calibration: fitted temperature, calibration error and log loss before and after, and a reliability chart against the diagonal" src="docs/img/lab-calibration-light.png"></picture>
-<p><b>Calibration:</b> fits one temperature per question so Laya's "70% sure" really means right 70% of the time. The reliability chart shows the before and after.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/timeline-dark.png"><img alt="Timeline: compress, route, model load and generation segments on one time axis, with VRAM and GPU power charts underneath" src="docs/img/timeline-light.png"></picture>
+<p><b>Timeline:</b> where the time went, with GPU memory and power underneath.</p>
 </td>
 <td width="50%" valign="top">
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/lab-editor-dark.png"><img alt="Question editor: the question and option wording, a score comparison against the live wording, and a per-example table" src="docs/img/lab-editor-light.png"></picture>
-<p><b>Question editor:</b> reword what Laya is asked and score the edit against the live wording on every labelled example before making it live.</p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/lab-whatif-dark.png"><img alt="What-if panel: one slider per threshold over a strip of past decisions coloured by label, with impact counts and an accuracy-by-threshold curve" src="docs/img/lab-whatif-light.png"></picture>
+<p><b>Lab:</b> drag a threshold and see which past decisions would change.</p>
 </td>
 </tr>
 </table>
 
-### Stats
+There's also a **History** of every run, **Calibration** and a **question editor** in the Lab, and a **Stats** tab.
 
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/img/stats-dark.png"><img alt="Stats: run counts, median time, thinking and retry rates, task and model mix, speed and time to first token per model, Laya's accuracy as you label, busiest hours" src="docs/img/stats-light.png"></picture>
+## Teaching Laya
 
-## Teaching Laya: the feedback loop
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/img/diagram-loop-dark.svg">
+  <img alt="The feedback loop: 1 use it, 2 label Laya's decisions with one click each, then tune with What if (thresholds), Calibrate or Edit questions, giving 3 better routing for your kind of requests, and repeat. A glossary explains labels, thresholds, calibration and fine-tuning." src="docs/img/diagram-loop-light.svg">
+</picture>
 
-Out of the box, Laya is a general-purpose decision model. It does well on clear cases but stumbles on borderline ones (see [Honest limits](#honest-limits)). The dashboard is built to close that gap with your own data:
-
-```mermaid
-flowchart LR
-    U["Use it<br/><small>ask questions</small>"] --> L["Label<br/><small>one click per decision<br/>in History</small>"]
-    L --> W["What if…<br/><small>tune thresholds</small>"]
-    L --> C["Calibrate<br/><small>honest probabilities</small>"]
-    L --> E["Edit questions<br/><small>better wording</small>"]
-    W --> B["Better routing"]
-    C --> B
-    E --> B
-    B --> U
-    L -. "a few hundred labels" .-> F["Fine-tune Laya<br/><small>laya-pipeline export<br/>+ official Kaggle notebook</small>"]
-```
-
-A starter set of 16 hand-labelled test cases is created on first run, so the Lab has something to work with straight away. When you've collected a few hundred labels, `laya-pipeline export` writes them to `logs/dataset.jsonl`, ready for Laya's [fine-tuning notebook](https://github.com/NandhaKishorM/laya/blob/main/notebooks/laya_finetune_typed_decisions_2xT4_kaggle.ipynb), which runs on Kaggle's free GPUs. On Laya's own benchmark, fine-tuning raised accuracy from 0.36 to 0.77.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    subgraph Browser
-        UI["Dashboard<br/><small>plain HTML/JS/SVG, no external scripts</small>"]
-    end
-    subgraph "laya-pipeline (Python)"
-        API["FastAPI server<br/><small>localhost only</small>"]
-        P["Pipeline"]
-        LAYA["Laya<br/><small>PyTorch, on CPU</small>"]
-        LOG[("logs/<br/><small>runs, decisions,<br/>labels, settings</small>")]
-    end
-    subgraph "LM Studio"
-        LMS["OpenAI-compatible API<br/>:1234"]
-        M1["Small model"]
-        M2["Big model"]
-        EM["Embedding model"]
-    end
-    UI <-- "live events (server-sent events)" --> API
-    API --> P
-    P --> LAYA
-    P <--> LMS
-    LMS --- M1 & M2 & EM
-    P --> LOG
-    API <--> LOG
-```
-
-**Everything stays on your machine.** The server only listens on `127.0.0.1`, and your questions, answers and labels are stored in `logs/`, which git ignores. The only network traffic is the one-time model downloads, from LM Studio's catalogue and Hugging Face.
+A starter set of 16 labelled examples comes with it. After a few hundred labels, `./laya export` writes them out for Laya's [fine-tuning notebook](https://github.com/NandhaKishorM/laya/blob/main/notebooks/laya_finetune_typed_decisions_2xT4_kaggle.ipynb), which runs on Kaggle's free GPUs.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `./laya setup` | One time: downloads missing models through LM Studio, loads Laya (downloading its weights the first time), then runs `doctor`. |
-| `./laya` | Starts LM Studio's server and the dashboard, then opens it. Flags: `--no-open`, `--restart`, `--port N`. |
-| `./laya ask "…" [-c file]…` | Answers one question in the terminal, optionally with context files. |
-| `./laya chat [-c file]…` | Interactive chat in the terminal. |
-| `./laya doctor` | Checks PyTorch and CUDA, free VRAM, where Laya will run, and which models the model server can serve. |
-| `./laya eval --label NAME [--compare FILE]` | Runs `eval/cases.jsonl` and scores speed and quality; with `--compare`, side by side with an earlier run, Laya judging whether the answers agree. Results in `logs/eval/`. |
-| `./laya review` | Labels logged decisions in the terminal (the dashboard's History does the same). |
-| `./laya export` | Writes labelled decisions to `logs/dataset.jsonl` for fine-tuning. |
+| `./laya` | Starts the model server (if needed) and the dashboard. Flags: `--no-open`, `--restart`, `--port N` |
+| `./laya setup` | One time: loads Laya (downloading its weights) and checks everything |
+| `./laya ask "…" [-c file]…` · `./laya chat` | Ask in the terminal, optionally with files |
+| `./laya eval --label NAME [--compare FILE]` | Score speed and quality on the test set |
+| `./laya doctor` | Check the GPU, the model server and where Laya runs |
+| `./laya review` · `./laya export` | Label decisions in the terminal · export labels for fine-tuning |
 
-`./laya <command>` is shorthand for `uv run laya-pipeline <command>`.
+Settings (models, thresholds, the speed-ups) are environment variables with sensible defaults, all listed with explanations in [`src/laya_pipeline/config.py`](src/laya_pipeline/config.py). The thresholds can also be changed from the Lab tab.
 
-## Configuration
+## Good to know
 
-Everything has a default, and any setting can be overridden with an environment variable of the same name, for example `KEEP_CHUNKS=10 ./laya`. The thresholds can also be changed and saved from the Lab tab.
-
-| Variable | Default | Meaning |
-|---|---|---|
-| `LAYA_BACKEND` | `llamacpp` | `llamacpp` (one llama-server router) or `lmstudio`. |
-| `LLAMACPP_URL` | `http://localhost:8080/v1` | The llama-server router's API. |
-| `LLAMACPP_SERVE` | `serve/serve.sh` | Script `./laya up` runs when the router isn't up (setup: [`serve/README.md`](serve/README.md)). |
-| `SMALL_MODEL` | `nemotron-3-nano-4b` | Fast model for easy requests (a preset name in `models.ini`; with LM Studio, an ID from `lms ls`). |
-| `BIG_MODEL` | `qwen3.6-35b-a3b` | Strong model for code, hard requests and retries. |
-| `BIG_MODEL_DOWNLOAD` | `qwen/qwen3.5-9b@q4_k_m` | The variant `setup` downloads (Q4 fits an 8 GB GPU). |
-| `EMBED_MODEL` | `nomic-embed-text-v1.5` | Embedding model for compression. |
-| `LAYA_DEVICE` | `cuda16` | Laya in 16-bit on the GPU, falling back to the CPU; `cpu` keeps all VRAM for the LLMs. |
-| `HARD_MIN_PROB` | `0.6` | p(hard) needed to use the big model with thinking. |
-| `TASK_MIN_PROB` | `0.5` | Below this, Laya's task guess is ignored and a neutral temperature is used. |
-| `BAD_ANSWER_MIN_PROB` | `0.7` | p(bad answer) that triggers a retry. |
-| `RELEVANCE_MIN_PROB` | `0.6` | p(relevant) needed to rescue a borderline chunk. |
-| `KEEP_CHUNKS` | `6` | Context chunks sent to the model when `ADAPTIVE_BUDGET=0`. |
-| `SCOPE_MIN_PROB` | `0.5` | Laya's scope answer sets the chunk budget (3 / 5 / 11) at or above this; below it, 5. |
-| `MAX_EXTRA_WAIT_S` | `8` | Extra prompt-reading seconds on the big model that send a hard request to the small one instead. |
-| `STRONG_HARD_PROB` | `0.85` | p(hard) at which the big model is used however long the prompt. |
-| `LMSTUDIO_URL` | `http://localhost:1234/v1` | LM Studio's API. |
-| `LAYA_LOG_DIR` | `./logs` | Where runs, labels and Lab settings are stored. |
-
-**Using other models:** any models LM Studio can run will work. Download them in LM Studio, then set `SMALL_MODEL` and `BIG_MODEL` to their IDs from `lms ls`. Thinking is switched off with `reasoning_effort: none`; models without a thinking mode simply ignore it.
-
-**Changing what Laya is asked:** edit the questions in the Lab's question editor, or change the defaults in [`src/laya_pipeline/questions.py`](src/laya_pipeline/questions.py).
-
-## The llama.cpp backend: a 35B model on an 8 GB GPU
-
-By default the pipeline talks to one `llama-server` in router mode (set up as described in [`serve/README.md`](serve/README.md), started by `./laya up`), which keeps three models loaded at once:
-
-| Model | Role | Where it lives | Speed on an RTX 3070 Laptop |
-|---|---|---|---|
-| Qwen3.6-35B-A3B (Q4_K_M, 22 GB) | big | non-expert weights on the GPU (~3 GB), the 256 experts per layer in RAM | 39–42 tok/s generating, ~1.5 s per 2,048-token prompt batch + 800 tok/s |
-| Nemotron 3 Nano 4B (Q4_K_M) | small | GPU (~3 GB) | 110 tok/s generating, 3,300 tok/s reading |
-| nomic-embed-text v1.5 | compression | GPU (~0.3 GB) | |
-
-The big model is a Mixture-of-Experts: each token only uses ~3B of its 35B parameters, so keeping the experts in RAM costs little when generating. Reading a prompt is the expensive part: every batch of up to 2,048 tokens copies the RAM experts to the GPU once. The pipeline is built around that cost:
-
-- **Routing overlaps embedding.** Laya routes on the GPU while the context is embedded, then picks the chunks.
-- **Context budget by scope.** A new Laya question, *How much of the document does a good answer need?*, sets the budget: 3, 5 or 11 chunks (~1k, 1.7k, 3.7k tokens, sized to stay under one or two batches). The top two-thirds are kept by similarity, Laya judges the rest.
-- **Prompt-cache-friendly layout.** The context goes in the last user message, so the system prompt and history stay identical between turns; llama-server reuses them from its prompt cache (and keeps recent ones in RAM with `--cache-ram`). A retry of the same request reads 4 tokens instead of 2,200: 0.13 s instead of 5.8 s.
-- **Routing knows prompt length.** A hard request still goes to the small model (with thinking) when reading its prompt on the big model would take more than `MAX_EXTRA_WAIT_S` longer, unless Laya is very sure it's hard. The estimate uses each model's measured batch cost and speed, refined from every request.
-
-**Measured** with `laya-pipeline eval` (17 requests in [`eval/cases.jsonl`](eval/cases.jsonl), 9 of them about two attached documents; prompt caches cleared between runs). *Baseline* is the same models with every speed-up switched off and Laya on the CPU:
-
-| | baseline | tuned |
-|---|---|---|
-| Median time to first token | 7.4 s | **0.9 s** |
-| Median time to first token, with a document | 12.5 s | **4.0 s** |
-| Total time for all 17 | 274 s | **174 s** |
-| Expected facts found | 11 / 13 | **12 / 13** |
-| Laya answer check, mean p(bad) | 0.142 | 0.137 |
-
-The full experiment log, with every hypothesis we tested, is in [`docs/experiments/2026-10-02-moe-offload.md`](docs/experiments/2026-10-02-moe-offload.md); the code for each experiment lives on its own `experiment/…` branch (see the log). `eval/ab.sh` reruns the comparison. Switch any speed-up off with `OVERLAP_ROUTE=0`, `CONTEXT_IN_USER=0`, `ADAPTIVE_BUDGET=0` or `LENGTH_ROUTING=0`. `LAYA_BACKEND=lmstudio` brings back the original LM Studio setup.
-
-## Hardware notes
-
-- **VRAM budget (llama.cpp backend):** MoE 3.1 GB + small model 3.0 GB + embedder 0.3 GB + Laya ~0.9–1.2 GB ≈ 7.6 of 7.8 GB. Laya falls back to the CPU by itself if the GPU fills up. Each expert layer moved from RAM to the GPU would add ~0.8 tok/s but costs ~465 MB, so there's no room for it while the small model stays loaded.
-- **RAM:** the MoE's experts (~19 GB) are read from the model file through the page cache, so keep ~22 GB free. If they get evicted, generation slows to disk speed.
-- **LM Studio backend: 8 GB of VRAM holds one model at a time.** LM Studio swaps models on demand, and the dashboard shows the swap as "model load" in the timeline. Leave LM Studio's *unload previous JIT model* setting on, which is the default, and don't pin models manually, or a swap may not fit.
-- **Laya on the GPU loads in 16-bit.** The stock full-precision load needs ~1.7 GB, which doesn't fit next to the three models, so it's loaded on the CPU, converted, then moved.
-- **Laptop GPUs work fine.** The tested RTX 3070 *Laptop* needed no special setup.
-- **Thinking is expensive.** A hard design question with thinking on took nearly 4 minutes on the test machine, compared with 1–30 s without. That's exactly why the pipeline only turns it on when Laya thinks it's needed.
-- **No NVIDIA GPU?** Everything still runs, just more slowly. The GPU charts stay empty without `nvidia-smi`. On Linux, uv installs the CUDA build of PyTorch by default, which is the large download.
-
-Tested on Linux (Arch / Omarchy) with an RTX 3070 Laptop GPU. macOS and Windows should work through `uv run laya-pipeline …`, but they haven't been tested yet.
-
-## Honest limits
-
-- **Laya's zero-shot judgement is unreliable on borderline cases.** Laya's own README reports its base checkpoints near chance on unfamiliar decision sets until they're fine-tuned. In testing here, the exact wording mattered: the same maths problem scored 81% "hard" when it ended with "Show the steps" and 36% without. The guardrails (thresholds, unsure fallbacks, the answer check) limit the damage, and the Lab plus your labels are the way to improve it.
-- **The answer check is shallow.** It catches off-topic or evasive answers. It doesn't verify facts.
-- **Compression follows your wording.** If the question doesn't share words or meaning with the relevant passage, embeddings can miss it. The chunk map makes those misses visible.
-- **One question at a time.** There's one GPU, so the dashboard runs one request at a time.
-- **Follow-ups with a document reuse less cache than they could.** History is sent without the earlier turns' context, so only the system prompt and older turns come from the cache; the last turn and the new context are read again.
-- **Keyword-only facts can be missed.** In the eval, "Which endpoint loads a model?" fails in every configuration: the answer is a short heading that ranks 50th of 102 chunks by embedding similarity.
+- **Everything stays on your machine.** The servers only listen on `127.0.0.1`, and your questions, answers and labels stay in `logs/`, which git ignores.
+- **Laya can be unsure on borderline requests.** The wording of a question can swing its "hard" score a lot. The fallbacks limit the damage, and your labels in the Lab fix it over time.
+- **The answer check is shallow.** It catches off-topic or evasive answers, not wrong facts.
+- **One request at a time.** There's one GPU.
+- Tested on Linux (Arch) with an RTX 3070 Laptop GPU. Other systems should work through `uv run laya-pipeline …`, but haven't been tested.
 
 ## Project layout
 
 ```
-laya-pipeline/
-├── laya                      # shortcut script: ./laya, ./laya setup, ./laya ask …
-├── pyproject.toml            # dependencies (installed by uv)
-├── src/laya_pipeline/
-│   ├── pipeline.py           # the four stages: compress → route → generate → check
-│   ├── questions.py          # what Laya is asked (editable from the Lab)
-│   ├── config.py             # settings and thresholds (env vars override)
-│   ├── lab.py                # evaluation, test cases, calibration
-│   ├── server.py             # dashboard API and live event stream
-│   ├── launcher.py           # `setup` and `up`
-│   ├── log.py                # decision and run logs, labelling, export
-│   └── static/               # the dashboard: index.html, app.css, *.js (no build step)
-└── logs/                     # created at runtime, git-ignored: your runs, labels and settings
+laya                    shortcut: ./laya, ./laya setup, ./laya ask …
+src/laya_pipeline/      the pipeline, Laya's questions, settings, dashboard server and UI
+serve/                  the model server (llama.cpp) and its setup guide
+eval/                   the test set and comparison scripts
+bench/                  model-speed benchmarks behind the server settings
+docs/experiments/       the experiment log with figures
 ```
 
 ## Credits and license
 
-- **[Laya](https://huggingface.co/convaiinnovations/laya)** by Convai Innovations (Apache-2.0): the decision model this project is built around.
-- **[LM Studio](https://lmstudio.ai)** runs the language models. The defaults are [Nemotron 3 Nano 4B](https://huggingface.co/nvidia) and [Qwen3.5 9B](https://huggingface.co/Qwen), with nomic-embed for compression.
+[Laya](https://huggingface.co/convaiinnovations/laya) by Convai Innovations (Apache-2.0) · [llama.cpp](https://github.com/ggml-org/llama.cpp) · [Qwen3.6-35B-A3B](https://huggingface.co/Qwen) · [Nemotron 3 Nano 4B](https://huggingface.co/nvidia) · nomic-embed · optional [LM Studio](https://lmstudio.ai).
 
-This project is licensed under the [Apache License 2.0](LICENSE).
+Licensed under the [Apache License 2.0](LICENSE).
