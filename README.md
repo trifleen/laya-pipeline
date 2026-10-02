@@ -307,7 +307,7 @@ The big model is a Mixture-of-Experts: each token only uses ~3B of its 35B param
 | Expected facts found | 11 / 13 | **12 / 13** |
 | Laya answer check, mean p(bad) | 0.142 | 0.137 |
 
-`eval/ab.sh` reruns the comparison. Switch any speed-up off with `OVERLAP_ROUTE=0`, `CONTEXT_IN_USER=0`, `ADAPTIVE_BUDGET=0` or `LENGTH_ROUTING=0`. `LAYA_BACKEND=lmstudio` brings back the original LM Studio setup.
+The full experiment log, with every hypothesis we tested, is in [`docs/experiments/2026-10-02-moe-offload.md`](docs/experiments/2026-10-02-moe-offload.md); the code for each experiment lives on its own `experiment/…` branch (see the log). `eval/ab.sh` reruns the comparison. Switch any speed-up off with `OVERLAP_ROUTE=0`, `CONTEXT_IN_USER=0`, `ADAPTIVE_BUDGET=0` or `LENGTH_ROUTING=0`. `LAYA_BACKEND=lmstudio` brings back the original LM Studio setup.
 
 ## Hardware notes
 

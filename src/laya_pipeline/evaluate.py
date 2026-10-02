@@ -62,6 +62,8 @@ def _row(case, answer, trace, wall_s):
         "prompt_ms": sum(g.get("prompt_ms") or 0 for g in gens),
         "first_token_ms": trace["generate"]["first_token_ms"],
         "tokens_per_s": final.get("tokens_per_s"),
+        "answer_tokens": sum(g.get("answer_tokens") or 0 for g in gens),
+        "reasoning_tokens": sum(g.get("reasoning_tokens") or 0 for g in gens),
         "total_s": round(wall_s, 2),
         "time_to_answer_s": round(sum(s["ms"] for s in trace.get("stages", [])
                                       if s["stage"] in ("compress", "route")) / 1000

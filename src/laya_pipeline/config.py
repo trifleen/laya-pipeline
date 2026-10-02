@@ -68,9 +68,9 @@ SCOPE_MIN_PROB = _env("SCOPE_MIN_PROB", 0.5)
 # 2,100-token prompt (2 batches) costs ~1.5 s more than a 2,000-token one. Measured 2026-10-02
 # through llama-server on the RTX 3070 Laptop (bench/results/phase0); SPEED is refined
 # from real requests.
-PROMPT_SPEED = {BIG_MODEL: 800.0, SMALL_MODEL: 3300.0}
-PROMPT_BATCH_COST_S = {BIG_MODEL: 1.5, SMALL_MODEL: 0.0}
-UBATCH = {BIG_MODEL: 2048, SMALL_MODEL: 512}
+PROMPT_SPEED = {SMALL_MODEL: 3300.0, BIG_MODEL: 800.0}  # big last: wins if both are one model
+PROMPT_BATCH_COST_S = {SMALL_MODEL: 0.0, BIG_MODEL: 1.5}
+UBATCH = {SMALL_MODEL: 512, BIG_MODEL: 2048}
 CHARS_PER_TOKEN = 3.6  # rough estimate for English text and code
 # A hard request still goes to the small model (with thinking) when the big model would make
 # you wait this many extra seconds just to read the prompt, unless Laya is very sure it's hard.
