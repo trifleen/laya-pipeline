@@ -1,0 +1,5 @@
+# 2026-10-02T19:56:14+02:00  model=models/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf  threads=8  llama.cpp=4ebdf2c
+#                total        used        free      shared  buff/cache   available
+# Mem:           31499        5469         782         164       26939       26030
+# Swap:          62998           0       62998
+# vram before: 2 MiB, 8192 MiB

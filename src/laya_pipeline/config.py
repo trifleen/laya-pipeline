@@ -21,7 +21,7 @@ LLAMACPP_URL = _env("LLAMACPP_URL", "http://localhost:8080/v1")
 BACKEND = _env("LAYA_BACKEND", "llamacpp")
 LLM_URL = LLAMACPP_URL if BACKEND == "llamacpp" else LMSTUDIO_URL
 # Script that starts the llama-server router; `laya up` runs it when nothing answers LLM_URL.
-LLAMACPP_SERVE = _env("LLAMACPP_SERVE", str(Path.home() / "Work/moe-offload/serve/serve.sh"))
+LLAMACPP_SERVE = _env("LLAMACPP_SERVE", str(Path(__file__).resolve().parents[2] / "serve" / "serve.sh"))
 
 # Model IDs as the server lists them. LM Studio: as `lms ls` prints them; llama.cpp: the
 # preset names in models.ini.
@@ -66,7 +66,7 @@ SCOPE_MIN_PROB = _env("SCOPE_MIN_PROB", 0.5)
 # Prompt-reading time per model = BATCH_COST_S per batch of up to UBATCH tokens + tokens / SPEED.
 # The MoE's batch cost is copying its RAM-resident experts to the GPU once per batch, so a
 # 2,100-token prompt (2 batches) costs ~1.5 s more than a 2,000-token one. Measured 2026-10-02
-# through llama-server on the RTX 3070 Laptop (moe-offload/results/phase0); SPEED is refined
+# through llama-server on the RTX 3070 Laptop (bench/results/phase0); SPEED is refined
 # from real requests.
 PROMPT_SPEED = {BIG_MODEL: 800.0, SMALL_MODEL: 3300.0}
 PROMPT_BATCH_COST_S = {BIG_MODEL: 1.5, SMALL_MODEL: 0.0}

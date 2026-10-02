@@ -259,7 +259,7 @@ Everything has a default, and any setting can be overridden with an environment 
 |---|---|---|
 | `LAYA_BACKEND` | `llamacpp` | `llamacpp` (one llama-server router) or `lmstudio`. |
 | `LLAMACPP_URL` | `http://localhost:8080/v1` | The llama-server router's API. |
-| `LLAMACPP_SERVE` | `~/Work/moe-offload/serve/serve.sh` | Script `./laya up` runs when the router isn't up. |
+| `LLAMACPP_SERVE` | `serve/serve.sh` | Script `./laya up` runs when the router isn't up (setup: [`serve/README.md`](serve/README.md)). |
 | `SMALL_MODEL` | `nemotron-3-nano-4b` | Fast model for easy requests (a preset name in `models.ini`; with LM Studio, an ID from `lms ls`). |
 | `BIG_MODEL` | `qwen3.6-35b-a3b` | Strong model for code, hard requests and retries. |
 | `BIG_MODEL_DOWNLOAD` | `qwen/qwen3.5-9b@q4_k_m` | The variant `setup` downloads (Q4 fits an 8 GB GPU). |
@@ -282,7 +282,7 @@ Everything has a default, and any setting can be overridden with an environment 
 
 ## The llama.cpp backend: a 35B model on an 8 GB GPU
 
-By default the pipeline talks to one `llama-server` in router mode (set up in the companion project `~/Work/moe-offload`, started by `./laya up`), which keeps three models loaded at once:
+By default the pipeline talks to one `llama-server` in router mode (set up as described in [`serve/README.md`](serve/README.md), started by `./laya up`), which keeps three models loaded at once:
 
 | Model | Role | Where it lives | Speed on an RTX 3070 Laptop |
 |---|---|---|---|

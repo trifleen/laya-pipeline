@@ -99,7 +99,7 @@ def ensure_model_server():
 def setup(args):
     """Download the LLMs and Laya's weights, then check everything."""
     if config.BACKEND == "llamacpp":
-        # The GGUFs and llama.cpp build live in the moe-offload project (its serve/models.ini).
+        # Models and the llama.cpp build are set up as in serve/README.md.
         if not ensure_llamacpp_server():
             sys.exit(1)
         _setup_laya(args)

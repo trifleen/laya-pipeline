@@ -3,7 +3,7 @@
 # each run so no run reuses prompt caches left by the previous one.
 set -uo pipefail
 cd "$(dirname "$0")/.."
-SERVE=${LLAMACPP_SERVE:-$HOME/Work/moe-offload/serve/serve.sh}
+SERVE=${LLAMACPP_SERVE:-serve/serve.sh}
 restart() {
   pkill -x llama-server; sleep 3
   setsid "$SERVE" >> logs/llama-server.log 2>&1 &
