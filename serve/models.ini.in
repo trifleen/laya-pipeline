@@ -1,0 +1,38 @@
+; llama-server router presets: all three models stay loaded at once on the 8 GB GPU.
+; Measured 2026-10-02 (bench/results/phase0): with every expert layer in RAM (n-cpu-moe 40) the MoE
+; needs ~3.1 GB of VRAM, which leaves room for the 4B model, so there is no model swapping.
+; Each expert layer moved onto the GPU costs ~465 MB and adds ~0.8 tok/s.
+version = 1
+
+[*]
+flash-attn = on
+n-gpu-layers = 99
+parallel = 1
+threads = 8
+; Prompt caches of earlier conversations kept in RAM (KV offload). Small on purpose: RAM also
+; has to hold the MoE's ~19 GB of experts, and evicting those to make room is far slower.
+cache-ram = 1024
+
+[qwen3.6-35b-a3b]
+model = __MODELS__/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+n-cpu-moe = 40
+ctx-size = 16384
+; Bigger prompt batches: 273 -> ~700 tok/s prompt reading (results/phase0/ubatch.txt).
+batch-size = 2048
+ubatch-size = 2048
+load-on-startup = true
+
+[nemotron-3-nano-4b]
+model = __MODELS__/NVIDIA-Nemotron-3-Nano-4B-Q4_K_M.gguf
+ctx-size = 8192
+load-on-startup = true
+
+[nomic-embed-text-v1.5]
+model = __MODELS__/nomic-embed-text-v1.5.Q4_K_M.gguf
+embeddings = true
+; a 1,200-char chunk is ~350 tokens, up to ~550 for tables and code; bigger batches only reserve VRAM
+ctx-size = 1024
+batch-size = 1024
+ubatch-size = 1024
+cache-ram = 0
+load-on-startup = true

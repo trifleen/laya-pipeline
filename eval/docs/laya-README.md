@@ -57,7 +57,7 @@ flowchart LR
     K -- flagged --> RT["Retry<br/><small>big model + thinking</small>"] --> A
 ```
 
-Laya runs on the **GPU in 16-bit** next to the language models (~0.9 GB of VRAM): about 20 ms per routing decision and 130 ms to judge six context chunks, 25–40× faster than on the CPU. With `LAYA_DEVICE=cpu` it takes ~0.4 s per decision and ~0.8 s per chunk instead.
+Laya runs on the **CPU** (about 300 ms per decision), so all of the GPU's memory stays free for the language models.
 
 ## The four stages
 
@@ -244,8 +244,7 @@ flowchart LR
 | `./laya` | Starts LM Studio's server and the dashboard, then opens it. Flags: `--no-open`, `--restart`, `--port N`. |
 | `./laya ask "…" [-c file]…` | Answers one question in the terminal, optionally with context files. |
 | `./laya chat [-c file]…` | Interactive chat in the terminal. |
-| `./laya doctor` | Checks PyTorch and CUDA, free VRAM, where Laya will run, and which models the model server can serve. |
-| `./laya eval --label NAME [--compare FILE]` | Runs `eval/cases.jsonl` and scores speed and quality; with `--compare`, side by side with an earlier run, Laya judging whether the answers agree. Results in `logs/eval/`. |
+| `./laya doctor` | Checks PyTorch and CUDA, free VRAM, where Laya will run, and which models LM Studio can serve. |
 | `./laya review` | Labels logged decisions in the terminal (the dashboard's History does the same). |
 | `./laya export` | Writes labelled decisions to `logs/dataset.jsonl` for fine-tuning. |
 
@@ -257,22 +256,16 @@ Everything has a default, and any setting can be overridden with an environment 
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `LAYA_BACKEND` | `llamacpp` | `llamacpp` (one llama-server router) or `lmstudio`. |
-| `LLAMACPP_URL` | `http://localhost:8080/v1` | The llama-server router's API. |
-| `LLAMACPP_SERVE` | `serve/serve.sh` | Script `./laya up` runs when the router isn't up (setup: [`serve/README.md`](serve/README.md)). |
-| `SMALL_MODEL` | `nemotron-3-nano-4b` | Fast model for easy requests (a preset name in `models.ini`; with LM Studio, an ID from `lms ls`). |
-| `BIG_MODEL` | `qwen3.6-35b-a3b` | Strong model for code, hard requests and retries. |
+| `SMALL_MODEL` | `nvidia/nemotron-3-nano-4b` | Fast model for easy requests (an LM Studio model ID, as shown by `lms ls`). |
+| `BIG_MODEL` | `qwen/qwen3.5-9b` | Strong model for code, hard requests and retries. |
 | `BIG_MODEL_DOWNLOAD` | `qwen/qwen3.5-9b@q4_k_m` | The variant `setup` downloads (Q4 fits an 8 GB GPU). |
-| `EMBED_MODEL` | `nomic-embed-text-v1.5` | Embedding model for compression. |
-| `LAYA_DEVICE` | `cuda16` | Laya in 16-bit on the GPU, falling back to the CPU; `cpu` keeps all VRAM for the LLMs. |
+| `EMBED_MODEL` | `text-embedding-nomic-embed-text-v1.5` | Embedding model for compression (bundled with LM Studio). |
+| `LAYA_DEVICE` | `cpu` | `cpu` keeps the VRAM for the LLMs; `cuda` or `auto` to try the GPU. |
 | `HARD_MIN_PROB` | `0.6` | p(hard) needed to use the big model with thinking. |
 | `TASK_MIN_PROB` | `0.5` | Below this, Laya's task guess is ignored and a neutral temperature is used. |
 | `BAD_ANSWER_MIN_PROB` | `0.7` | p(bad answer) that triggers a retry. |
 | `RELEVANCE_MIN_PROB` | `0.6` | p(relevant) needed to rescue a borderline chunk. |
-| `KEEP_CHUNKS` | `6` | Context chunks sent to the model when `ADAPTIVE_BUDGET=0`. |
-| `SCOPE_MIN_PROB` | `0.5` | Laya's scope answer sets the chunk budget (3 / 5 / 11) at or above this; below it, 5. |
-| `MAX_EXTRA_WAIT_S` | `8` | Extra prompt-reading seconds on the big model that send a hard request to the small one instead. |
-| `STRONG_HARD_PROB` | `0.85` | p(hard) at which the big model is used however long the prompt. |
+| `KEEP_CHUNKS` | `6` | The most context chunks sent to the model. |
 | `LMSTUDIO_URL` | `http://localhost:1234/v1` | LM Studio's API. |
 | `LAYA_LOG_DIR` | `./logs` | Where runs, labels and Lab settings are stored. |
 
@@ -280,41 +273,10 @@ Everything has a default, and any setting can be overridden with an environment 
 
 **Changing what Laya is asked:** edit the questions in the Lab's question editor, or change the defaults in [`src/laya_pipeline/questions.py`](src/laya_pipeline/questions.py).
 
-## The llama.cpp backend: a 35B model on an 8 GB GPU
-
-By default the pipeline talks to one `llama-server` in router mode (set up as described in [`serve/README.md`](serve/README.md), started by `./laya up`), which keeps three models loaded at once:
-
-| Model | Role | Where it lives | Speed on an RTX 3070 Laptop |
-|---|---|---|---|
-| Qwen3.6-35B-A3B (Q4_K_M, 22 GB) | big | non-expert weights on the GPU (~3 GB), the 256 experts per layer in RAM | 39–42 tok/s generating, ~1.5 s per 2,048-token prompt batch + 800 tok/s |
-| Nemotron 3 Nano 4B (Q4_K_M) | small | GPU (~3 GB) | 110 tok/s generating, 3,300 tok/s reading |
-| nomic-embed-text v1.5 | compression | GPU (~0.3 GB) | |
-
-The big model is a Mixture-of-Experts: each token only uses ~3B of its 35B parameters, so keeping the experts in RAM costs little when generating. Reading a prompt is the expensive part: every batch of up to 2,048 tokens copies the RAM experts to the GPU once. The pipeline is built around that cost:
-
-- **Routing overlaps embedding.** Laya routes on the GPU while the context is embedded, then picks the chunks.
-- **Context budget by scope.** A new Laya question, *How much of the document does a good answer need?*, sets the budget: 3, 5 or 11 chunks (~1k, 1.7k, 3.7k tokens, sized to stay under one or two batches). The top two-thirds are kept by similarity, Laya judges the rest.
-- **Prompt-cache-friendly layout.** The context goes in the last user message, so the system prompt and history stay identical between turns; llama-server reuses them from its prompt cache (and keeps recent ones in RAM with `--cache-ram`). A retry of the same request reads 4 tokens instead of 2,200: 0.13 s instead of 5.8 s.
-- **Routing knows prompt length.** A hard request still goes to the small model (with thinking) when reading its prompt on the big model would take more than `MAX_EXTRA_WAIT_S` longer, unless Laya is very sure it's hard. The estimate uses each model's measured batch cost and speed, refined from every request.
-
-**Measured** with `laya-pipeline eval` (17 requests in [`eval/cases.jsonl`](eval/cases.jsonl), 9 of them about two attached documents; prompt caches cleared between runs). *Baseline* is the same models with every speed-up switched off and Laya on the CPU:
-
-| | baseline | tuned |
-|---|---|---|
-| Median time to first token | 7.4 s | **0.9 s** |
-| Median time to first token, with a document | 12.5 s | **4.0 s** |
-| Total time for all 17 | 274 s | **174 s** |
-| Expected facts found | 11 / 13 | **12 / 13** |
-| Laya answer check, mean p(bad) | 0.142 | 0.137 |
-
-The full experiment log, with every hypothesis we tested, is in [`docs/experiments/2026-10-02-moe-offload.md`](docs/experiments/2026-10-02-moe-offload.md); the code for each experiment lives on its own `experiment/…` branch (see the log). `eval/ab.sh` reruns the comparison. Switch any speed-up off with `OVERLAP_ROUTE=0`, `CONTEXT_IN_USER=0`, `ADAPTIVE_BUDGET=0` or `LENGTH_ROUTING=0`. `LAYA_BACKEND=lmstudio` brings back the original LM Studio setup.
-
 ## Hardware notes
 
-- **VRAM budget (llama.cpp backend):** MoE 3.1 GB + small model 3.0 GB + embedder 0.3 GB + Laya ~0.9–1.2 GB ≈ 7.6 of 7.8 GB. Laya falls back to the CPU by itself if the GPU fills up. Each expert layer moved from RAM to the GPU would add ~0.8 tok/s but costs ~465 MB, so there's no room for it while the small model stays loaded.
-- **RAM:** the MoE's experts (~19 GB) are read from the model file through the page cache, so keep ~22 GB free. If they get evicted, generation slows to disk speed.
-- **LM Studio backend: 8 GB of VRAM holds one model at a time.** LM Studio swaps models on demand, and the dashboard shows the swap as "model load" in the timeline. Leave LM Studio's *unload previous JIT model* setting on, which is the default, and don't pin models manually, or a swap may not fit.
-- **Laya on the GPU loads in 16-bit.** The stock full-precision load needs ~1.7 GB, which doesn't fit next to the three models, so it's loaded on the CPU, converted, then moved.
+- **8 GB of VRAM holds one model at a time.** LM Studio swaps models on demand, and the dashboard shows the swap as "model load" in the timeline. Leave LM Studio's *unload previous JIT model* setting on, which is the default, and don't pin models manually, or a swap may not fit.
+- **Laya runs on the CPU on purpose.** On the GPU it would take about 1.7 GB from the language models. On the CPU it costs about 300 ms per decision.
 - **Laptop GPUs work fine.** The tested RTX 3070 *Laptop* needed no special setup.
 - **Thinking is expensive.** A hard design question with thinking on took nearly 4 minutes on the test machine, compared with 1–30 s without. That's exactly why the pipeline only turns it on when Laya thinks it's needed.
 - **No NVIDIA GPU?** Everything still runs, just more slowly. The GPU charts stay empty without `nvidia-smi`. On Linux, uv installs the CUDA build of PyTorch by default, which is the large download.
@@ -327,8 +289,6 @@ Tested on Linux (Arch / Omarchy) with an RTX 3070 Laptop GPU. macOS and Windows 
 - **The answer check is shallow.** It catches off-topic or evasive answers. It doesn't verify facts.
 - **Compression follows your wording.** If the question doesn't share words or meaning with the relevant passage, embeddings can miss it. The chunk map makes those misses visible.
 - **One question at a time.** There's one GPU, so the dashboard runs one request at a time.
-- **Follow-ups with a document reuse less cache than they could.** History is sent without the earlier turns' context, so only the system prompt and older turns come from the cache; the last turn and the new context are read again.
-- **Keyword-only facts can be missed.** In the eval, "Which endpoint loads a model?" fails in every configuration: the answer is a short heading that ranks 50th of 102 chunks by embedding similarity.
 
 ## Project layout
 

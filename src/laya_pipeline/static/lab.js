@@ -1,7 +1,7 @@
 /* Lab tab: what-if thresholds, calibration, and the question editor. */
 const Lab = (() => {
-  const QN = { task: "Task type", hard: "Needs thinking", answers: "Answer check", relevant: "Chunk relevance" };
-  const OPT = { hard: { A: "hard", B: "easy" }, answers: { A: "good", B: "bad" }, relevant: { A: "relevant", B: "not relevant" } };
+  const QN = { task: "Task type", hard: "Needs thinking", answers: "Answer check", relevant: "Chunk relevance", scope: "Context scope" };
+  const OPT = { hard: { A: "hard", B: "easy" }, answers: { A: "good", B: "bad" }, relevant: { A: "relevant", B: "not relevant" }, scope: { A: "one passage", B: "a few sections", C: "most of it" } };
   const optName = (q, k) => OPT[q]?.[k] || k;
 
   // How each threshold reads a decision: x = the probability compared to the threshold,
@@ -15,6 +15,8 @@ const Lab = (() => {
       x: (p) => p.B, yes: (d) => d.label === "B", yesName: "labelled bad", noName: "labelled good" },
     RELEVANCE_MIN_PROB: { q: "relevant", title: "Rescue a chunk", what: "p(relevant) for borderline chunks. At or above → sent to the model.",
       x: (p) => p.A, yes: (d) => d.label === "A", yesName: "labelled relevant", noName: "labelled not relevant" },
+    SCOPE_MIN_PROB: { q: "scope", title: "Trust the context budget", what: "Laya's top scope probability. At or above → 3 / 6 / 12 chunks; below → the default 6.",
+      x: (p) => Math.max(...Object.values(p)), yes: (d, p) => d.label === top(p), yesName: "Laya's guess was right", noName: "Laya's guess was wrong" },
   };
   const top = (p) => Object.keys(p).reduce((a, b) => (p[a] >= p[b] ? a : b));
 

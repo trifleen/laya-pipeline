@@ -39,6 +39,19 @@ RELEVANT = {
     },
 }
 
+# Asked only when a document is attached; sets how many chunks the model gets.
+SCOPE = {
+    "scope": {
+        "type": "choice",
+        "instructions": "How much of the attached document does a good answer to this request need?",
+        "criteria": {
+            "A": "one specific fact, number, name or passage",
+            "B": "a few related sections",
+            "C": "most of the document: a summary, overview, review or comparison of all of it",
+        },
+    },
+}
+
 CHECK = {
     "answers": {
         "type": "choice",
@@ -52,7 +65,7 @@ CHECK = {
 
 # ---- edits from the dashboard's Lab tab ------------------------------------------------------
 
-GROUPS = {"task": ROUTE, "hard": ROUTE, "relevant": RELEVANT, "answers": CHECK}
+GROUPS = {"task": ROUTE, "hard": ROUTE, "scope": SCOPE, "relevant": RELEVANT, "answers": CHECK}
 DEFAULTS = {name: copy.deepcopy(group[name]) for name, group in GROUPS.items()}
 
 

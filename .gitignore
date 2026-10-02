@@ -14,3 +14,6 @@ logs/
 .idea/
 .vscode/
 .DS_Store
+
+# Presets rendered by serve/serve.sh
+serve/.generated/

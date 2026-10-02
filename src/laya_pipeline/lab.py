@@ -39,6 +39,15 @@ SEED_CASES = [
     ("task", "My Python async server deadlocks under load. How do I debug it?", "code"),
     ("task", "Write a short poem about autumn in Bergen.", "creative"),
     ("task", "What does HTTP stand for?", "factual"),
+    ("scope", "What port does the server listen on by default?", "A"),
+    ("scope", "Who is the author of this report?", "A"),
+    ("scope", "What does the --n-cpu-moe flag do?", "A"),
+    ("scope", "How do I configure authentication and what are the security caveats?", "B"),
+    ("scope", "Which settings affect memory use, and how?", "B"),
+    ("scope", "Explain how the caching works and when it gets invalidated.", "B"),
+    ("scope", "Summarize this document.", "C"),
+    ("scope", "Give me an overview of the whole design and its main trade-offs.", "C"),
+    ("scope", "Review this paper: what are its strengths and weaknesses?", "C"),
 ]
 
 
@@ -56,7 +65,16 @@ def _load_cases():
                 for q, s, lab in SEED_CASES]
         _save_cases(rows)
         return rows
-    return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    # Seed questions added after the file was created (deleting a question's seeds sticks only
+    # while at least one case for that question is left).
+    have = {r["question"] for r in rows}
+    new = [{"id": uuid.uuid4().hex[:12], "question": q, "state": s, "label": lab, "source": "seed"}
+           for q, s, lab in SEED_CASES if q not in have]
+    if new:
+        rows += new
+        _save_cases(rows)
+    return rows
 
 
 def _save_cases(rows):

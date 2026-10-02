@@ -4,9 +4,11 @@ async function refreshStatus() {
     const s = await (await fetch("/api/status")).json();
     CFG = s.config;
     const lm = s.lmstudio;
+    $("lm-name").textContent = CFG.backend === "llamacpp" ? "llama.cpp" : "LM Studio";
     const loaded = lm.models.filter((m) => m.state === "loaded" && m.type !== "embeddings").map((m) => `${m.id.split("/").pop()} ${m.quant || ""}`);
     $("lm-dot").className = "dot " + (lm.up ? "ok" : "bad");
-    $("lm-txt").textContent = lm.up ? (loaded.join(", ") || "no model loaded") : "server down — run: lms server start";
+    $("lm-txt").textContent = lm.up ? (loaded.join(", ") || "no model loaded")
+      : (CFG.backend === "llamacpp" ? "server down — run: ./laya up" : "server down — run: lms server start");
     $("laya-dot").className = "dot " + ({ready: "ok", loading: "warn", error: "bad"}[s.laya.state]);
     $("laya-txt").textContent = s.laya.state === "ready" ? `ready on ${s.laya.device}` : s.laya.state;
     if (s.gpu) {
@@ -45,13 +47,28 @@ function drawRoute(r) {
   h += `</div><div class="sub-h">Needs a lot of thinking?</div><div class="bars">
     <span class="lbl ${r.hard ? "win" : ""}">hard</span>
     <div class="bar"><i class="${r.hard ? "hot" : ""}" style="width:${pct(r.p_hard)}"></i><span class="th" style="left:${pct(th.hard)}" data-l="think ≥ ${pct(th.hard)}"></span></div>
-    <span class="pct">${pct(r.p_hard)}</span></div>
+    <span class="pct">${pct(r.p_hard)}</span></div>`;
+  if (r.scope_probs) {
+    const SC = { A: "one passage", B: "a few sections", C: "most of it" };
+    h += `<div class="sub-h">How much of the document?</div><div class="bars">`;
+    for (const [k, p] of Object.entries(r.scope_probs)) {
+      const win = k === r.scope;
+      h += `<span class="lbl ${win ? "win" : ""}">${SC[k] || k}</span>
+        <div class="bar"><i class="${win ? "win" : ""}" style="width:${pct(p)}"></i></div><span class="pct">${pct(p)}</span>`;
+    }
+    h += `</div>`;
+  }
+  if (r.est_prompt_s) {
+    const est = Object.entries(r.est_prompt_s).map(([m, s]) => `${m.split("/").pop()} ${s} s`).join(" · ");
+    h += `<div class="kbd" style="margin-top:8px">~${r.prompt_tokens_est} new prompt tokens → reading time ${esc(est)}</div>`;
+  }
+  h += `
     <div class="verdict">
       <span class="tag model">${esc(r.model.split("/").pop())}</span>
       <span class="tag ${r.think ? "think" : ""}">${r.think ? "thinking on" : "thinking off"}</span>
       <span class="tag">temp ${r.temperature}</span>
       <span class="tag ${r.sure ? "" : "warn"}">${r.sure ? r.task : `unsure → neutral temp`}</span>
-    </div>`;
+    </div>${r.reason && !["easy", "hard", "code"].includes(r.reason) ? `<div class="kbd" style="margin-top:6px">${esc(r.reason)}</div>` : ""}`;
   $("route").innerHTML = h;
   $("route-ms").textContent = `Laya ${r.laya_ms} ms`;
 }
@@ -105,7 +122,7 @@ async function send() {
   checks = []; drawFlow(stages);
   $("route").innerHTML = `<div class="empty">Laya is deciding…</div>`; $("route-ms").textContent = "";
   $("check").innerHTML = `<div class="empty">Waiting for the answer…</div>`;
-  ["s-wait", "s-tps", "s-ans", "s-think"].forEach((id) => $(id).textContent = "–");
+  ["s-wait", "s-tps", "s-ans", "s-think", "s-prompt"].forEach((id) => $(id).textContent = "–");
   if (!$("ctx").value.trim()) { $("comp").innerHTML = `<div class="empty">No context given — compression skipped.</div>`; $("comp-note").textContent = ""; }
 
   let answer = "", thinking = "", retried = false, nTok = 0, nThink = 0, genStart = 0;
@@ -155,7 +172,8 @@ async function send() {
       answer = d.answer; render(true);
       clearInterval(tlTimer); tl = traceTimeline(d.trace); drawTL();
       const g = d.trace.retry || d.trace.generate;
-      if (g) { $("s-tps").textContent = g.tokens_per_s; $("s-ans").textContent = g.answer_tokens; $("s-think").textContent = g.reasoning_tokens; }
+      if (g) { $("s-tps").textContent = g.tokens_per_s; $("s-ans").textContent = g.answer_tokens; $("s-think").textContent = g.reasoning_tokens;
+        if (g.prompt_tokens != null) $("s-prompt").textContent = `${g.prompt_tokens} / ${g.cached_tokens ?? 0}`; }
       $("answer-meta").textContent = `${d.trace.seconds} s total`;
     },
     error: (d) => { box.innerHTML += `<div class="err">${esc(d.message)}</div>`; },

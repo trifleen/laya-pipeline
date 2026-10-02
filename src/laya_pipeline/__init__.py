@@ -1,4 +1,4 @@
-"""laya-pipeline: Laya routing and context compression in front of LM Studio."""
+"""laya-pipeline: Laya routing and context compression in front of local models (llama.cpp or LM Studio)."""
 
 import argparse
 import json
@@ -54,8 +54,8 @@ def cmd_doctor(args):
     try:
         ids = {m.id for m in _lm.models.list().data}
     except Exception as e:
-        print(f"LM Studio server not reachable at {config.LMSTUDIO_URL}: {e}")
-        print("Start it with: lms server start")
+        print(f"Model server ({config.BACKEND}) not reachable at {config.LLM_URL}: {e}")
+        print("Start it with: ./laya up" if config.BACKEND == "llamacpp" else "Start it with: lms server start")
         return
     for name in (config.SMALL_MODEL, config.BIG_MODEL, config.EMBED_MODEL):
         print(f"{'ok' if name in ids else 'MISSING':8}{name}")
@@ -106,6 +106,12 @@ def main():
     d = sub.add_parser("dashboard", help="live web dashboard at http://localhost:8765")
     d.add_argument("--port", type=int, default=8765)
     d.set_defaults(fn=cmd_dashboard)
+
+    e = sub.add_parser("eval", help="score speed and quality on eval/cases.jsonl (see evaluate.py)")
+    e.add_argument("--label", default="run", help="name for this run, e.g. baseline")
+    e.add_argument("--only", nargs="*", help="case ids to run")
+    e.add_argument("--compare", help="earlier eval JSON: show side by side and judge agreement")
+    e.set_defaults(fn=lambda a: __import__("laya_pipeline.evaluate", fromlist=["run"]).run(a.label, a.only, a.compare))
 
     from .log import export, review
     sub.add_parser("review", help="label logged Laya decisions").set_defaults(fn=lambda _: review())

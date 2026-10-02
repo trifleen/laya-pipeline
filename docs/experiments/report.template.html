@@ -1,0 +1,284 @@
+<title>35B on 8 GB</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,500..800&family=Newsreader:opsz,wght@6..72,400;6..72,600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a lab notebook. One reading column; figures may run wider. Two memory colours
+   carry meaning everywhere: VRAM (teal) and system RAM (amber). */
+:root {
+  --bg: #f3f5f4; --surface: #ffffff; --ink: #18252a; --muted: #5b6a6f; --rule: #d5dcda;
+  --vram: #0e7c80; --vram-soft: #cfe8e7; --ram: #b7791f; --ram-soft: #f3e3c6;
+  --good: #2f7d4a; --bad: #b23b3b; --weak: #8a6d1d;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --body: "Newsreader", Georgia, "Times New Roman", serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111a1d; --surface: #172327; --ink: #e3ebe9; --muted: #93a4a8; --rule: #2a3a3f;
+  --vram: #46b5b8; --vram-soft: #1d4447; --ram: #e0a447; --ram-soft: #4a3a1c;
+  --good: #6cc48a; --bad: #e57d7d; --weak: #d4b45a; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111a1d; --surface: #172327; --ink: #e3ebe9; --muted: #93a4a8; --rule: #2a3a3f;
+  --vram: #46b5b8; --vram-soft: #1d4447; --ram: #e0a447; --ram-soft: #4a3a1c;
+  --good: #6cc48a; --bad: #e57d7d; --weak: #d4b45a; color-scheme: dark }
+
+body { background: var(--bg); color: var(--ink); font: 400 18px/1.6 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 80px; display: grid; gap: 56px; }
+.col { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.1; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(40px, 7vw, 76px); font-weight: 800; font-stretch: 112%; letter-spacing: -0.02em; }
+h1 .on { color: var(--muted); font-weight: 600; }
+h2 { font-size: 28px; font-weight: 700; font-stretch: 105%; }
+h3 { font-size: 17px; font-weight: 700; }
+p { margin: 0; }
+section { display: grid; gap: 18px; }
+.eyebrow { font: 600 12px/1 var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 21px; color: var(--ink); }
+.spec { display: flex; flex-wrap: wrap; gap: 8px; }
+.spec span { font: 400 13px/1 var(--mono); padding: 7px 10px; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface); }
+.mono, code { font-family: var(--mono); font-size: 0.86em; }
+.muted { color: var(--muted); }
+
+/* headline numbers */
+.headline { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+.headline div { background: var(--surface); padding: 18px; display: grid; gap: 6px; min-width: 0; }
+.headline b { font: 700 34px/1 var(--display); font-stretch: 90%; font-variant-numeric: tabular-nums; }
+.headline small { font: 400 13px/1.4 var(--mono); color: var(--muted); }
+
+/* memory map */
+.mem { display: grid; gap: 14px; }
+.memrow { display: grid; grid-template-columns: 110px 1fr; gap: 12px; align-items: center; }
+.memrow .lbl { font: 600 13px/1.3 var(--mono); }
+.bar { display: flex; height: 46px; border: 1px solid var(--rule); background: var(--surface); border-radius: 4px; overflow: hidden; min-width: 0; }
+.seg { display: flex; align-items: center; padding-inline: 8px; font: 400 12px/1.2 var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--bg); }
+.seg.v { background: var(--vram-soft); color: var(--ink); }
+.seg.v.strong { background: var(--vram); color: var(--surface); }
+.seg.r { background: var(--ram-soft); }
+.seg.r.strong { background: var(--ram); color: var(--surface); }
+.seg.free { background: transparent; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font: 400 13px/1 var(--mono); color: var(--muted); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -1px; margin-right: 6px; }
+
+/* hypotheses */
+.hyps { display: grid; gap: 10px; }
+.hyp { display: grid; grid-template-columns: 52px 1fr auto; gap: 14px; align-items: start; padding: 14px 16px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; }
+.hyp .id { font: 700 15px/1.4 var(--mono); color: var(--muted); }
+.hyp .txt { display: grid; gap: 4px; min-width: 0; }
+.hyp .claim { font-weight: 600; }
+.hyp .ev { font-size: 15.5px; color: var(--muted); }
+.hyp .ev b { color: var(--ink); font-weight: 600; }
+.pill { font: 600 11px/1 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; padding: 6px 8px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.confirmed { color: var(--good); }
+.pill.rejected { color: var(--bad); }
+.pill.weak, .pill.pending { color: var(--weak); }
+
+/* figures */
+figure { margin: 0; display: grid; gap: 10px; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 18px; min-width: 0; }
+figcaption { font-size: 15.5px; color: var(--muted); }
+figcaption b { color: var(--ink); }
+.figs { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.chart { overflow-x: auto; }
+.chart svg { display: block; width: 100%; height: auto; min-width: 280px; }
+svg text { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+svg text.v { fill: var(--ink); font-weight: 600; }
+.axis { stroke: var(--rule); }
+
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.tablewrap { overflow-x: auto; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); font-size: 15px; }
+th { font: 600 12px/1.3 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+td.n { font-family: var(--mono); font-size: 13.5px; text-align: right; white-space: nowrap; }
+th.n { text-align: right; }
+td.best { color: var(--vram); font-weight: 600; }
+pre.mermaid { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px; overflow-x: auto; }
+.verdict { border-left: 3px solid var(--vram); padding: 4px 0 4px 16px; font-size: 19px; }
+footer { font: 400 13px/1.6 var(--mono); color: var(--muted); }
+@media (max-width: 560px) {
+  body { font-size: 17px; }
+  .memrow { grid-template-columns: 1fr; gap: 6px; }
+  .hyp { grid-template-columns: 1fr; gap: 6px; }
+}
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:18px">
+    <div class="eyebrow">Laya pipeline · experiment log · 2 Oct 2026</div>
+    <h1>35B <span class="on">on</span> 8&nbsp;GB</h1>
+    <p class="lede col">Running Qwen3.6-35B-A3B on a laptop GPU by keeping its experts in system RAM, and making the Laya pipeline fast around it. Every hypothesis we tested, what we expected and what we measured.</p>
+    <div class="spec"><span>RTX 3070 Laptop · 8 GB</span><span>PCIe 3.0 x16</span><span>Ryzen 9 5900HX · 8 cores</span><span>30 GB DDR4 · 2 channels</span><span>llama.cpp 4ebdf2c</span></div>
+  </header>
+
+  <section>
+    <div class="headline" id="headline"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">The setup</div>
+    <h2>Where every byte lives</h2>
+    <p class="col">A Mixture-of-Experts model uses only ~3B of its 35B parameters per token. The parts every token needs stay on the GPU; the 256 experts per layer stay in RAM and are computed on the CPU while generating. Reading a prompt is different: each batch of up to 2,048 tokens copies all RAM experts over PCIe once.</p>
+    <div class="mem" id="memmap"></div>
+    <div class="legend"><span><i style="background:var(--vram)"></i>GPU memory</span><span><i style="background:var(--ram)"></i>System RAM</span></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Hypotheses</div>
+    <h2>What we expected, what we measured</h2>
+    <p class="col">In the order we tested them. Several of our expectations were wrong, and the wrong ones led to the biggest gains.</p>
+    <div class="hyps" id="hyps"></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Measurements</div>
+    <h2>The numbers behind the decisions</h2>
+    <div class="figs">
+      <figure><div class="chart" id="c-ub"></div><figcaption><b>Prompt-reading speed by batch size</b> (2,048-token prompt). Bigger batches copy the RAM experts fewer times. <span class="mono">H7</span></figcaption></figure>
+      <figure><div class="chart" id="c-ncmoe"></div><figcaption><b>Generation speed by expert layers kept in RAM.</b> Each layer moved to the GPU costs ~465 MB for ~0.8 tok/s. <span class="mono">H3–H4</span></figcaption></figure>
+      <figure><div class="chart" id="c-laya"></div><figcaption><b>Laya on the CPU vs on the GPU in bf16</b>, log scale. The CPU was the hidden bottleneck. <span class="mono">H13–H14</span></figcaption></figure>
+      <figure><div class="chart" id="c-batch"></div><figcaption><b>Prompt time is not linear.</b> MoE prompt time by length: ~1.5 s per batch plus ~800 tok/s. <span class="mono">H9</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="eyebrow">The pipeline</div>
+    <h2>How a request flows now</h2>
+    <pre class="mermaid">
+sequenceDiagram
+    participant U as Request
+    participant L as Laya (GPU, bf16)
+    participant E as Embedder (GPU)
+    participant M as Model
+    U->>L: route + scope (~20 ms)
+    U->>E: embed chunks, in parallel
+    L-->>U: budget 3 / 5 / 11 chunks
+    U->>L: judge borderline chunks (~130 ms)
+    Note over U: estimate prompt-reading time per model
+    U->>M: generate (cached prefix reused)
+    U->>L: check the answer (~30 ms)
+    </pre>
+  </section>
+
+  <section>
+    <div class="eyebrow">Result 1 · the speed-ups</div>
+    <h2>Same models, pipeline changes only</h2>
+    <p class="col">17 requests: 8 without a document, 9 about two attached documents. Prompt caches cleared between runs. Baseline has all four speed-ups off and Laya on the CPU.</p>
+    <figure><div class="chart" id="c-r1"></div><figcaption><b>Time to first token per request</b>, baseline (hollow) vs tuned (filled). Document questions gain the most.</figcaption></figure>
+    <div class="tablewrap"><table id="t-r1"></table></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">Result 2 · H16</div>
+    <h2>Does the small model earn its VRAM?</h2>
+    <p class="col" id="r2-intro"></p>
+    <figure><div class="chart" id="c-r2"></div><figcaption id="c-r2-cap"></figcaption></figure>
+    <div class="tablewrap"><table id="t-r2"></table></div>
+    <p class="verdict col" id="r2-verdict"></p>
+  </section>
+
+  <section>
+    <div class="eyebrow">Still open</div>
+    <h2>Next questions</h2>
+    <ul class="col" style="margin:0;padding-left:20px;display:grid;gap:8px">
+      <li><b>Phase 1:</b> which experts does the router pick per token? If a few experts per layer cover most picks, a hot-expert cache on the GPU is worth building.</li>
+      <li><b>Follow-ups with a document</b> reuse only the system prompt from the cache: history is sent without the earlier context.</li>
+      <li><b>Keyword-only facts:</b> "which endpoint loads a model" ranks 50th of 102 chunks by embedding similarity, in every setup.</li>
+      <li><b>Calibration</b> was fitted on Laya's CPU probabilities; bf16 shifts them by up to 0.02.</li>
+    </ul>
+  </section>
+
+  <footer>Generated by docs/experiments/build_report.py from logs/eval/*.json and moe-offload/results/phase0. Raw runs: <span id="srcs"></span></footer>
+</div>
+
+<script>
+const D = /*DATA*/null;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+/* headline */
+$("headline").innerHTML = D.headline.map(([v, k]) => `<div><b>${esc(v)}</b><small>${esc(k)}</small></div>`).join("");
+
+/* memory map, drawn to scale per bar */
+$("memmap").innerHTML = D.memory.map((row) => {
+  const segs = row.segs.map(([name, gb, cls]) =>
+    `<div class="seg ${cls}" style="flex:${gb} 0 0" title="${esc(name)} · ${gb} GB">${esc(name)} ${gb} GB</div>`).join("");
+  return `<div class="memrow"><div class="lbl">${esc(row.label)}</div><div class="bar">${segs}</div></div>`;
+}).join("");
+
+/* hypotheses */
+$("hyps").innerHTML = D.hypotheses.map((h) => `
+  <div class="hyp"><div class="id">${h.id}</div>
+    <div class="txt"><div class="claim">${esc(h.claim)}</div>
+      <div class="ev">Expected: ${esc(h.expected)}. Measured: <b>${esc(h.measured)}</b>${h.did ? `. → ${esc(h.did)}` : ""}</div></div>
+    <span class="pill ${h.verdict}">${h.verdict}</span></div>`).join("");
+
+/* --- small SVG chart helpers (one linear or log scale per chart) --- */
+function hbars(el, rows, { unit = "", max, log = false, color = "--vram" } = {}) {
+  const W = 460, rowH = 30, left = 120, right = 70, H = rows.length * rowH + 10;
+  const mx = max ?? Math.max(...rows.map((r) => r[1]));
+  const lo = log ? Math.log10(Math.min(...rows.map((r) => r[1])) / 2) : 0;
+  const x = (v) => left + (W - left - right) * (log ? (Math.log10(v) - lo) / (Math.log10(mx) - lo) : v / mx);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  rows.forEach(([lab, v, c], i) => {
+    const y = 6 + i * rowH;
+    s += `<text x="${left - 8}" y="${y + 15}" text-anchor="end">${esc(lab)}</text>
+      <rect x="${left}" y="${y + 3}" width="${Math.max(2, x(v) - left)}" height="16" rx="2" fill="${css(c || color)}"/>
+      <text class="v" x="${x(v) + 6}" y="${y + 15}">${v}${unit}</text>`;
+  });
+  el.innerHTML = s + `</svg>`;
+}
+function line(el, pts, { xl, yl, ymin = 0, ymax, color = "--vram", fmt = (v) => v } = {}) {
+  const W = 460, H = 220, L = 44, R = 16, T = 14, B = 34;
+  const xs = pts.map((p) => p[0]), x0 = Math.min(...xs), x1 = Math.max(...xs);
+  const y1 = ymax ?? Math.max(...pts.map((p) => p[1])) * 1.1;
+  const X = (v) => L + (W - L - R) * (v - x0) / (x1 - x0 || 1), Y = (v) => T + (H - T - B) * (1 - (v - ymin) / (y1 - ymin));
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  for (let k = 0; k <= 4; k++) { const v = ymin + (y1 - ymin) * k / 4; s += `<line class="axis" x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${L - 6}" y="${Y(v) + 4}" text-anchor="end">${fmt(Math.round(v))}</text>`; }
+  pts.forEach((p) => { s += `<text x="${X(p[0])}" y="${H - B + 16}" text-anchor="middle">${p[0]}</text>`; });
+  s += `<polyline fill="none" stroke="${css(color)}" stroke-width="2.5" points="${pts.map((p) => `${X(p[0])},${Y(p[1])}`).join(" ")}"/>`;
+  pts.forEach((p) => { s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="4" fill="${css(color)}"/><text class="v" x="${X(p[0])}" y="${Y(p[1]) - 9}" text-anchor="middle">${p[2] ?? p[1]}</text>`; });
+  s += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">${esc(xl)}</text><text x="12" y="${T + 4}">${esc(yl)}</text>`;
+  el.innerHTML = s + `</svg>`;
+}
+/* dot plot: one row per request, several series on one log time axis */
+function dots(el, rows, series) {
+  const W = 760, rowH = 24, L = 150, R = 20, T = 26, H = rows.length * rowH + T + 30;
+  const vals = rows.flatMap((r) => series.map((s) => r[s.key]).filter((v) => v != null));
+  const lo = Math.log10(0.1), hi = Math.log10(Math.max(...vals) * 1.3);
+  const X = (v) => L + (W - L - R) * (Math.log10(Math.max(v, 0.1)) - lo) / (hi - lo);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img">`;
+  [0.1, 0.3, 1, 3, 10, 30, 100].filter((t) => Math.log10(t) <= hi).forEach((t) => {
+    s += `<line class="axis" x1="${X(t)}" x2="${X(t)}" y1="${T - 6}" y2="${H - 26}"/><text x="${X(t)}" y="${H - 10}" text-anchor="middle">${t} s</text>`; });
+  series.forEach((sr, i) => { s += `<circle cx="${L + i * 150 + 6}" cy="10" r="5" fill="${sr.hollow ? css("--surface") : css(sr.color)}" stroke="${css(sr.color)}" stroke-width="2"/><text x="${L + i * 150 + 16}" y="14">${esc(sr.name)}</text>`; });
+  rows.forEach((r, i) => {
+    const y = T + i * rowH + 12;
+    s += `<text x="${L - 10}" y="${y + 4}" text-anchor="end">${esc(r.id)}</text>`;
+    const xsr = series.map((sr) => r[sr.key]).filter((v) => v != null).map(X);
+    if (xsr.length > 1) s += `<line x1="${Math.min(...xsr)}" x2="${Math.max(...xsr)}" y1="${y}" y2="${y}" stroke="${css("--rule")}" stroke-width="2"/>`;
+    series.forEach((sr) => { const v = r[sr.key]; if (v == null) return;
+      s += `<circle cx="${X(v)}" cy="${y}" r="5.5" fill="${sr.hollow ? css("--surface") : css(sr.color)}" stroke="${css(sr.color)}" stroke-width="2"><title>${esc(r.id)} · ${esc(sr.name)} · ${v} s</title></circle>`; });
+  });
+  el.innerHTML = s + `</svg>`;
+}
+function table(el, head, rows, best) {
+  el.innerHTML = `<tr>${head.map((h, i) => `<th class="${i ? "n" : ""}">${esc(h)}</th>`).join("")}</tr>` +
+    rows.map((r) => `<tr>${r.map((c, i) => `<td class="${i ? "n" : ""} ${best && best(r, i) ? "best" : ""}">${esc(c)}</td>`).join("")}</tr>`).join("");
+}
+
+function draw() {
+  hbars($("c-ub"), D.ubatch.map(([ub, v]) => [`ub ${ub}`, v]), { unit: " tok/s" });
+  line($("c-ncmoe"), D.ncmoe, { xl: "expert layers in RAM (of 40)", yl: "tok/s", ymin: 30, ymax: 55, color: "--ram" });
+  hbars($("c-laya"), D.laya.map(([k, v, c]) => [k, v, c]), { unit: " ms", log: true });
+  line($("c-batch"), D.batch, { xl: "prompt tokens", yl: "seconds", ymin: 0, ymax: 11, fmt: (v) => v });
+  dots($("c-r1"), D.r1.rows, [{ key: "baseline", name: "baseline", color: "--ram", hollow: true }, { key: "tuned", name: "tuned", color: "--vram" }]);
+  table($("t-r1"), D.r1.head, D.r1.table);
+  $("r2-intro").textContent = D.r2.intro;
+  $("c-r2-cap").innerHTML = D.r2.caption;
+  dots($("c-r2"), D.r2.rows, D.r2.series.map((s) => ({ ...s })));
+  table($("t-r2"), D.r2.head, D.r2.table);
+  $("r2-verdict").textContent = D.r2.verdict;
+  $("srcs").textContent = D.sources.join(", ");
+}
+draw();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", draw);
+new MutationObserver(draw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+</script>

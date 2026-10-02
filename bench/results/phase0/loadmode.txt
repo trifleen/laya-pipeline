@@ -1,0 +1,6 @@
+load-mode mmap prompt 256 140 tok/s 1.83 s
+load-mode mmap prompt 1024 388 tok/s 2.64 s
+load-mode mmap prompt 2048 647 tok/s 3.16 s
+load-mode none prompt 256 148 tok/s 1.73 s
+load-mode none prompt 1024 406 tok/s 2.52 s
+load-mode none prompt 2048 667 tok/s 3.07 s
