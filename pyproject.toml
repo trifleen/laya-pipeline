@@ -1,0 +1,23 @@
+[project]
+name = "laya-pipeline"
+version = "0.1.0"
+description = "A tiny classifier (Laya) routes, compresses and checks every request to your local LLMs in LM Studio, with a live dashboard."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Ivan Kochura", email = "230204043+trifleen@users.noreply.github.com" }]
+keywords = ["llm", "local-llm", "lm-studio", "routing", "classifier", "laya", "dashboard"]
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.142.2",
+    "laya==0.3.23",
+    "openai>=3.23.0",
+    "uvicorn>=0.54.0",
+]
+
+[project.scripts]
+laya-pipeline = "laya_pipeline:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"

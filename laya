@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Shortcut for `laya-pipeline` that works from any folder.
+#   ./laya              start everything and open the dashboard (same as `./laya up`)
+#   ./laya setup        one-time downloads
+#   ./laya ask "..."    any other laya-pipeline command
+# Put it on your PATH:  ln -s "$PWD/laya" ~/.local/bin/laya
+
+here="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+if [[ $# -eq 0 || $1 == -* ]]; then
+  set -- up "$@"
+fi
+exec uv run --project "$here" laya-pipeline "$@"

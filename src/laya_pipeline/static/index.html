@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laya Pipeline</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <h1>Laya pipeline</h1>
+  <nav class="tabs" id="tabs">
+    <button data-tab="live" class="on">Live</button><button data-tab="lab">Lab</button><button data-tab="stats">Stats</button>
+  </nav>
+  <span class="chip"><span class="dot" id="lm-dot"></span>LM Studio <b id="lm-txt">…</b></span>
+  <span class="chip"><span class="dot" id="laya-dot"></span>Laya <b id="laya-txt">…</b></span>
+  <span class="chip">VRAM <span class="meter"><i id="vram-bar" style="width:0"></i></span><b id="vram-txt">…</b></span>
+  <span class="chip" id="gpu-extra"></span>
+  <span class="chip">Labels <b id="lab-txt">…</b></span>
+</header>
+
+<main id="tab-live">
+  <div class="col">
+    <section class="card">
+      <h2>Pipeline <small id="run-id"></small></h2>
+      <div class="flow" id="flow"></div>
+    </section>
+
+    <section class="card">
+      <h2>Timeline <small>where the time went · hover for details</small></h2>
+      <div id="timeline"><div class="empty">Each run's stages, model loading and GPU memory/power appear here.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Answer <small id="answer-meta"></small></h2>
+      <div id="answer" class="answer"><div class="empty">Ask something below to watch it flow through the pipeline.</div></div>
+    </section>
+
+    <section class="card ask">
+      <textarea id="q" placeholder="Ask anything…  (Ctrl+Enter to send)"></textarea>
+      <details class="ctx" id="ctx-box">
+        <summary>Context for compression <span id="ctx-info" class="kbd"></span></summary>
+        <textarea id="ctx" placeholder="Paste documents here, or load files below. Long text gets chunked, ranked and compressed."></textarea>
+        <div class="row"><input type="file" id="files" multiple accept=".txt,.md,.py,.json,.csv,.log,.html,.js,.ts,.yaml,.yml,.toml,.rs,.go,.sh"><button class="btn" id="ctx-clear">Clear context</button></div>
+      </details>
+      <div class="row">
+        <label class="check"><input type="checkbox" id="remember" checked> Remember conversation <span class="kbd" id="turns"></span></label>
+        <button class="btn" id="reset">New conversation</button>
+        <span class="spacer"></span>
+        <button class="btn primary" id="send">Send</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>History <small>click a run to label Laya's decisions</small></h2>
+      <div class="hist-wrap"><table class="hist" id="hist"></table></div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <h2>Routing <small id="route-ms"></small></h2>
+      <div id="route"><div class="empty">Waiting for a question.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Generation</h2>
+      <div class="stats" id="gen">
+        <div class="stat"><div class="v" id="s-wait">–</div><div class="k">first token</div></div>
+        <div class="stat"><div class="v" id="s-tps">–</div><div class="k">tokens / s</div></div>
+        <div class="stat"><div class="v" id="s-ans">–</div><div class="k">answer tokens</div></div>
+        <div class="stat"><div class="v" id="s-think">–</div><div class="k">thinking tokens</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Answer check</h2>
+      <div id="check"><div class="empty">Laya checks every answer before you see it as final.</div></div>
+    </section>
+
+    <section class="card">
+      <h2>Context compression <small id="comp-note"></small></h2>
+      <div id="comp"><div class="empty">Add context to see chunks ranked, rescued and dropped.</div></div>
+    </section>
+  </div>
+</main>
+
+<main id="tab-lab" hidden></main>
+<main id="tab-stats" hidden></main>
+
+<script src="/static/util.js"></script>
+<script src="/static/live.js"></script>
+<script src="/static/lab.js"></script>
+<script src="/static/stats.js"></script>
+<script>
+// Tabs: the hash keeps the tab across reloads (#lab, #stats).
+const TABS = { lab: () => Lab.show(), stats: () => Stats.show() };
+function showTab(name) {
+  if (!document.getElementById("tab-" + name)) name = "live";
+  document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  document.querySelectorAll("main").forEach((m) => m.hidden = m.id !== "tab-" + name);
+  history.replaceState(null, "", name === "live" ? location.pathname : "#" + name);
+  TABS[name]?.();
+}
+document.querySelectorAll("#tabs button").forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+showTab(location.hash.slice(1) || "live");
+</script>
+</body>
+</html>

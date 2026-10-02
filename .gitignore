@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+.venv
+
+# Your data: questions, answers, labels, Lab settings
+logs/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
