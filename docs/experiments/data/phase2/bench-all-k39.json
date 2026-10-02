@@ -1,0 +1,145 @@
+{
+ "config": "all-k39",
+ "vram_mb": 6599,
+ "gen_tokens": 1518,
+ "gen_tok_s": 39.77,
+ "prompt_tok_s": 468.2,
+ "rows": [
+  {
+   "id": "norway",
+   "text": "The capital of Norway is **Oslo**.",
+   "predicted_n": 10,
+   "predicted_ms": 256.746,
+   "prompt_n": 32,
+   "prompt_ms": 388.086
+  },
+  {
+   "id": "http",
+   "text": "HTTP stands for **HyperText Transfer Protocol**.\n\nIt is the foundation of data communication for the World Wide Web. HTTP defines how messages are formatted and transmitted, and what actions web servers and browsers should take in response to various commands.",
+   "predicted_n": 48,
+   "predicted_ms": 1226.051,
+   "prompt_n": 31,
+   "prompt_ms": 299.599
+  },
+  {
+   "id": "greet",
+   "text": "Hello! I'm doing well, thank you for asking. How are you doing today? Is there anything specific I can help you with?",
+   "predicted_n": 29,
+   "predicted_ms": 675.026,
+   "prompt_n": 31,
+   "prompt_ms": 316.26
+  },
+  {
+   "id": "train",
+   "text": "To determine when the second train catches up to the first, we can use the concept of relative speed or set up an equation based on distance. Here is the step-by-step solution.\n\n### Step 1: Determine the head start of the first train\n\nThe first train leaves at **14:10** and the second train leaves at **14:40**.\n\nCalculate the time difference (head start):\n$$14:40 - 14:10 = 30 \\text{ minutes}$$\n\nConvert this time into hours, since the speeds are in km/h:\n$$30 \\text{ minutes} = \\frac{30}{60} \\text{ hours} = 0.5 \\text{ hours}$$\n\n### Step 2: Calculate the distance the first train traveled during its head start\n\nThe first train travels at **80 km/h** for **0",
+   "predicted_n": 192,
+   "predicted_ms": 4927.719,
+   "prompt_n": 74,
+   "prompt_ms": 1395.009
+  },
+  {
+   "id": "sqrt2",
+   "text": "To prove that the square root of 2 ($\\sqrt{2}$) is irrational, we will use a method called **proof by contradiction**.\n\n### Step 1: Assumption\nAssume the opposite of what we want to prove. Suppose that $\\sqrt{2}$ is **rational**.\n\nBy definition, a rational number can be expressed as a fraction $\\frac{a}{b}$, where:\n1. $a$ and $b$ are integers.\n2. $b \\neq 0$.\n3. The fraction $\\frac{a}{b}$ is in **lowest terms** (i.e., $a$ and $b$ share no common factors other than 1). This means $\\gcd(a, b) = 1$.\n\nSo, we write:\n$$ \\sqrt{2} = \\frac{a}{b} $$\n\n### Step 2: Algebraic Manipulation\n",
+   "predicted_n": 192,
+   "predicted_ms": 4972.804,
+   "prompt_n": 37,
+   "prompt_ms": 1073.357
+  },
+  {
+   "id": "bash",
+   "text": "```bash\nls -lS | tail -n +2 | sort -k5 -n -r | awk '{print $5, $9}'\n```",
+   "predicted_n": 35,
+   "predicted_ms": 921.654,
+   "prompt_n": 44,
+   "prompt_ms": 1134.216
+  },
+  {
+   "id": "asyncdebug",
+   "text": "This is a classic asyncio deadlock scenario. Let me help you diagnose and fix it.\n\n## Common Causes\n\n### 1. **Blocking I/O in Async Code**\nThe most common cause. If any part of your upload handler calls blocking code (synchronous file I/O, `time.sleep()`, `requests.get()`, etc.), it blocks the entire event loop.\n\n```python\n# \u274c BAD - blocks the event loop\nasync def handle_upload(reader, writer):\n    data = await reader.read(1024)\n    with open('file.txt', 'wb') as f:  # Blocking!\n        f.write(data)\n```\n\n### 2. **Shared Mutable State Without Proper Synchronization**\nIf two clients modify shared state (like a list, dict, or counter) without proper locking, you can get race conditions that manifest as deadlocks.\n\n### 3. **Task Cancellation",
+   "predicted_n": 192,
+   "predicted_ms": 4659.623,
+   "prompt_n": 52,
+   "prompt_ms": 1210.721
+  },
+  {
+   "id": "poem",
+   "text": "The sky hangs low, a slate-grey dome,\nOver the fjord\u2019s dark, restless foam.\nThe rain falls soft on cobblestone,\nWhere mist and mountain shadows moan.\n\nThe birches burn in amber light,\nAgainst the damp and fading night.\nA cup of coffee, warm and deep,\nWhile autumn wakes from summer\u2019s sleep.\n\nThe cables hum, the trams roll by,\nBeneath the weeping, wide-open sky.\nIn Bergen\u2019s heart, the chill takes hold,\nA story of the rain, retold.",
+   "predicted_n": 121,
+   "predicted_ms": 2726.088,
+   "prompt_n": 34,
+   "prompt_ms": 323.816
+  },
+  {
+   "id": "srv-cacheram",
+   "text": "The provided context does not contain information about the `--cache-ram` parameter or its default value. Therefore, I cannot answer this question based on the given text.",
+   "predicted_n": 35,
+   "predicted_ms": 885.178,
+   "prompt_n": 2009,
+   "prompt_ms": 3547.105
+  },
+  {
+   "id": "srv-modelsmax",
+   "text": "Based on the provided context, there is no mention of a \"router mode\" or an option that limits how many models are loaded at the same time. The provided text only lists common parameters for the LLaMA.cpp HTTP server, such as thread counts, context size, and batch sizes, but does not include parameters specific to multi-model routing or loading limits.\n\nTherefore, the answer cannot be found in the given context.",
+   "predicted_n": 87,
+   "predicted_ms": 2237.057,
+   "prompt_n": 2021,
+   "prompt_ms": 3554.374
+  },
+  {
+   "id": "srv-load",
+   "text": "Based on the provided context, there is no mention of a \"router mode\" or a specific HTTP endpoint for loading a model in such a mode. The context lists general features and common command-line parameters but does not detail specific HTTP endpoints for model loading in a router context.\n\nTherefore, the answer is not contained in the provided text.",
+   "predicted_n": 69,
+   "predicted_ms": 1748.117,
+   "prompt_n": 2008,
+   "prompt_ms": 3560.183
+  },
+  {
+   "id": "srv-ckpt",
+   "text": "The provided context does not contain information about the number of context checkpoints per slot that the server creates by default.",
+   "predicted_n": 23,
+   "predicted_ms": 577.296,
+   "prompt_n": 2011,
+   "prompt_ms": 3564.647
+  },
+  {
+   "id": "srv-router",
+   "text": "Based on the provided context, there is no information regarding \"router mode,\" how models are found, configured with presets, or how requests are routed. The text only lists general features and common command-line parameters for the LLaMA.cpp HTTP Server.",
+   "predicted_n": 51,
+   "predicted_ms": 1295.594,
+   "prompt_n": 2021,
+   "prompt_ms": 3540.256
+  },
+  {
+   "id": "srv-summary",
+   "text": "The document describes the **LLaMA.cpp HTTP Server**, a fast, lightweight, pure C/C++ HTTP server built on `httplib`, `nlohmann::json`, and `llama.cpp`. It provides a set of LLM REST APIs and a web UI for interacting with llama.cpp.\n\n**Key Features:**\n*   **Inference:** Supports F16 and quantized models on both GPU and CPU.\n*   **API Compatibility:** Offers routes compatible with the **OpenAI API** (chat completions, responses, embeddings) and the **Anthropic Messages API**.\n*   **Advanced Capabilities:** Includes reranking, parallel decoding with multi-user support, continuous batching, speculative decoding, and schema-constrained JSON responses.\n*   **Multimodal & Tools:** Supports multimodal inputs (with OpenAI-compatible API support) and function calling/tool use for various models.\n*   **Monitoring:** Provides monitoring",
+   "predicted_n": 192,
+   "predicted_ms": 4977.998,
+   "prompt_n": 2004,
+   "prompt_ms": 3529.48
+  },
+  {
+   "id": "laya-cpu",
+   "text": "Laya runs on the **CPU**. This was chosen so that all of the GPU's memory stays free for the language models.",
+   "predicted_n": 27,
+   "predicted_ms": 665.95,
+   "prompt_n": 1693,
+   "prompt_ms": 3305.277
+  },
+  {
+   "id": "laya-cpu-follow",
+   "text": "Based on the provided text, one Laya decision takes about **300 ms** on a CPU.",
+   "predicted_n": 23,
+   "predicted_ms": 587.222,
+   "prompt_n": 1692,
+   "prompt_ms": 3311.725
+  },
+  {
+   "id": "laya-overview",
+   "text": "Based on the provided text, here is an overview of the Laya Pipeline project:\n\n### What it does\nLaya Pipeline is a system that optimizes the use of local Large Language Models (LLMs) by introducing a lightweight decision-making layer. It uses a small, 420M-parameter classifier model called **Laya** to make routing and context decisions before the main LLM generates an answer. This allows users to balance speed, cost, and quality when running models locally on consumer hardware.\n\n### How the pipeline works\nThe pipeline processes every request through four distinct stages:\n\n1.  **Compress (Context Selection):**\n    *   Documents are split into chunks.\n    *   An embedding model ranks chunks by relevance to the question.\n    *   The top chunks are kept automatically.\n    *   **Laya** evaluates \"borderline\" chunks to decide if they are relevant (p(relevant)",
+   "predicted_n": 192,
+   "predicted_ms": 4829.612,
+   "prompt_n": 1702,
+   "prompt_ms": 3317.93
+  }
+ ]
+}

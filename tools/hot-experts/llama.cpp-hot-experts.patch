@@ -1,0 +1,296 @@
+diff --git i/src/CMakeLists.txt w/src/CMakeLists.txt
+index afdaddc..36b5ed1 100644
+--- i/src/CMakeLists.txt
++++ w/src/CMakeLists.txt
+@@ -18,6 +18,7 @@ set(LLAMA_CORE_SOURCES
+     llama-cparams.cpp
+     llama-grammar.cpp
+     llama-graph.cpp
++    llama-hot-experts.cpp
+     llama-hparams.cpp
+     llama-impl.cpp
+     llama-io.cpp
+diff --git i/src/llama-graph.cpp w/src/llama-graph.cpp
+index ae477c0..d62c3ad 100644
+--- i/src/llama-graph.cpp
++++ w/src/llama-graph.cpp
+@@ -1,4 +1,5 @@
+ #include "llama-graph.h"
++#include "llama-hot-experts.h"
+ 
+ #include "llama-impl.h"
+ #include "llama-model.h"
+@@ -2188,6 +2189,47 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
+     ggml_tensor * up = nullptr;
+     ggml_tensor * experts = nullptr;
+ 
++    // PROTOTYPE (moe-offload phase 2): hot picks on the GPU copy, cold picks from RAM.
++    const llama_hot_layer * hot = llama_hot_experts_get(il);
++    if (hot && !gate_up_exps && gate_exps && type_op == LLM_FFN_SILU && !weight_before_ffn &&
++        !up_exps_b && !gate_exps_b && !down_exps_b && !up_exps_s && !gate_exps_s && !down_exps_s) {
++        GGML_ASSERT(n_expert_used <= LLAMA_HOT_SLOTS);
++        ggml_tensor * ids_flat = ggml_reshape_1d(ctx0, ggml_cont(ctx0, selected_experts), n_expert_used * n_tokens);
++        auto lookup = [&](ggml_tensor * table) { // [n_expert_used, n_tokens] F32
++            return ggml_reshape_2d(ctx0, ggml_get_rows(ctx0, table, ids_flat), n_expert_used, n_tokens);
++        };
++        auto per_slot = [&](ggml_tensor * t) {  // [n_expert_used, 1] view of a per-slot table
++            return ggml_view_2d(ctx0, t, n_expert_used, 1, t->nb[1], 0);
++        };
++        ggml_tensor * hot_m  = lookup(hot->is_hot);
++        ggml_tensor * cold_m = ggml_scale_bias(ctx0, hot_m, -1.0f, 1.0f);
++        // GPU side: hot picks -> their slot; cold picks -> a dummy slot of their own (weight 0)
++        ggml_tensor * ids_hot = ggml_cast(ctx0,
++            ggml_add(ctx0, lookup(hot->hot_pos), ggml_mul(ctx0, cold_m, per_slot(hot->dummy))), GGML_TYPE_I32);
++        // RAM side: cold picks -> themselves. Hot picks -> one stand-in when the CPU computes this
++        // (generating), or a distinct hot expert per slot when it may run on the GPU (prompt
++        // batches of 32+ tokens are offloaded, and its kernels can't take repeated experts).
++        ggml_tensor * ids_cold = n_tokens < 32
++            ? ggml_reshape_2d(ctx0, ggml_get_rows(ctx0, hot->map_cold, ids_flat), n_expert_used, n_tokens)
++            : ggml_cast(ctx0, ggml_add(ctx0, lookup(hot->cold_id), ggml_mul(ctx0, hot_m, per_slot(hot->hot_ref))), GGML_TYPE_I32);
++        ggml_tensor * mask   = ggml_reshape_3d(ctx0, hot_m, 1, n_expert_used, n_tokens);
++        ggml_tensor * w_hot  = ggml_mul(ctx0, weights, mask);
++        ggml_tensor * w_cold = ggml_sub(ctx0, weights, w_hot);
++        cb(ids_hot, "ffn_moe_ids_hot", il);
++        cb(ids_cold, "ffn_moe_ids_cold", il);
++
++        auto run = [&](ggml_tensor * up_t, ggml_tensor * gate_t, ggml_tensor * down_t, ggml_tensor * ids, ggml_tensor * w) {
++            ggml_tensor * u = ggml_mul_mat_id(ctx0, up_t,   cur, ids);
++            ggml_tensor * g = ggml_mul_mat_id(ctx0, gate_t, cur, ids);
++            ggml_tensor * a = ggml_swiglu_split(ctx0, g, u);
++            return ggml_mul(ctx0, ggml_mul_mat_id(ctx0, down_t, a, ids), w);
++        };
++        experts = ggml_add(ctx0,
++            run(hot->up, hot->gate, hot->down, ids_hot, w_hot),
++            run(up_exps, gate_exps, down_exps, ids_cold, w_cold));
++        cb(experts, "ffn_moe_weighted", il);
++    } else {
++
+     if (gate_up_exps) {
+         // merged gate_up path: one mul_mat_id, then split into gate and up views
+         ggml_tensor * gate_up = build_lora_mm_id(gate_up_exps, cur, selected_experts, up_exps_s); // [n_ff*2, n_expert_used, n_tokens]
+@@ -2343,6 +2385,7 @@ ggml_tensor * llm_graph_context::build_moe_ffn(
+         experts = ggml_mul(ctx0, experts, weights);
+         cb(experts, "ffn_moe_weighted", il);
+     }
++    } // PROTOTYPE: end of the non-hot path
+ 
+     ggml_build_forward_expand(gf, experts);
+ 
+diff --git i/src/llama-model.cpp w/src/llama-model.cpp
+index 742bcd5..b09b8a7 100644
+--- i/src/llama-model.cpp
++++ w/src/llama-model.cpp
+@@ -1,4 +1,5 @@
+ #include "llama-model.h"
++#include "llama-hot-experts.h"
+ 
+ #include "llama-arch.h"
+ #include "llama-ext.h"
+@@ -1957,6 +1958,8 @@ bool llama_model_base::load_tensors(llama_model_loader & ml) {
+         }
+     }
+ 
++    llama_hot_experts_load(layers); // PROTOTYPE (moe-offload phase 2), no-op unless LLAMA_HOT_EXPERTS is set
++
+     return true;
+ }
+ 
+diff --git 1/src/llama-hot-experts.cpp 2/src/llama-hot-experts.cpp
+new file mode 100644
+index 0000000..fa5d542
+--- /dev/null
++++ 2/src/llama-hot-experts.cpp
+@@ -0,0 +1,148 @@
++#include "llama-hot-experts.h"
++
++#include "llama-impl.h"
++#include "llama-model.h"
++
++#include "ggml-backend.h"
++#include "ggml-cpu.h"
++
++#include <cstdlib>
++#include <fstream>
++#include <map>
++#include <sstream>
++
++namespace {
++
++std::map<int, llama_hot_layer> g_hot;
++ggml_context * g_ctx_gpu = nullptr;
++ggml_context * g_ctx_cpu = nullptr;
++ggml_backend_buffer_t g_buf_gpu = nullptr;
++ggml_backend_buffer_t g_buf_cpu = nullptr;
++
++ggml_tensor * hot_copy_tensor(ggml_tensor * src, int k, int il, const char * what) {
++    ggml_tensor * t = ggml_new_tensor_3d(g_ctx_gpu, src->type, src->ne[0], src->ne[1], k);
++    ggml_format_name(t, "blk.%d.%s_hot", il, what);
++    return t;
++}
++
++} // namespace
++
++void llama_hot_experts_load(std::vector<llama_layer> & layers) {
++    const char * path = getenv("LLAMA_HOT_EXPERTS");
++    if (!path || !*path) {
++        return;
++    }
++    // "<layer> <hot expert> <hot expert> ... " per line; the cold stand-in is the first
++    // expert of the line "s <layer> <expert>" if present, else the first cold expert.
++    std::map<int, std::vector<int>> want;
++    std::map<int, int> stand_in;
++    std::ifstream in(path);
++    for (std::string line; std::getline(in, line);) {
++        std::istringstream ss(line);
++        if (line.rfind("s ", 0) == 0) {
++            std::string s; int il, e;
++            ss >> s >> il >> e;
++            stand_in[il] = e;
++            continue;
++        }
++        int il;
++        if (!(ss >> il)) {
++            continue;
++        }
++        for (int e; ss >> e;) {
++            want[il].push_back(e);
++        }
++    }
++
++    ggml_backend_dev_t gpu = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
++    if (!gpu || want.empty()) {
++        LLAMA_LOG_WARN("%s: LLAMA_HOT_EXPERTS set but no GPU or no layers in %s\n", __func__, path);
++        return;
++    }
++
++    const size_t n_tensors = want.size() * 9;
++    g_ctx_gpu = ggml_init({ ggml_tensor_overhead() * n_tensors, nullptr, true });
++    g_ctx_cpu = ggml_init({ ggml_tensor_overhead() * n_tensors, nullptr, true });
++
++    for (auto & [il, experts] : want) {
++        llama_layer & L = layers.at(il);
++        GGML_ASSERT(L.ffn_up_exps && L.ffn_gate_exps && L.ffn_down_exps && "prototype needs separate up/gate/down experts");
++        const int k = (int) experts.size();
++        GGML_ASSERT(k >= LLAMA_HOT_SLOTS && "need at least LLAMA_HOT_SLOTS hot experts per layer");
++        const int n_expert = (int) L.ffn_up_exps->ne[2];
++        llama_hot_layer h;
++        h.k    = k;
++        h.up   = hot_copy_tensor(L.ffn_up_exps,   k + LLAMA_HOT_SLOTS, il, "ffn_up_exps");
++        h.gate = hot_copy_tensor(L.ffn_gate_exps, k + LLAMA_HOT_SLOTS, il, "ffn_gate_exps");
++        h.down = hot_copy_tensor(L.ffn_down_exps, k + LLAMA_HOT_SLOTS, il, "ffn_down_exps");
++        h.is_hot   = ggml_new_tensor_2d(g_ctx_cpu, GGML_TYPE_F32, 1, n_expert);
++        h.hot_pos  = ggml_new_tensor_2d(g_ctx_cpu, GGML_TYPE_F32, 1, n_expert);
++        h.cold_id  = ggml_new_tensor_2d(g_ctx_cpu, GGML_TYPE_F32, 1, n_expert);
++        h.map_cold = ggml_new_tensor_2d(g_ctx_cpu, GGML_TYPE_I32, 1, n_expert);
++        h.dummy    = ggml_new_tensor_2d(g_ctx_cpu, GGML_TYPE_F32, LLAMA_HOT_SLOTS, 1);
++        h.hot_ref  = ggml_new_tensor_2d(g_ctx_cpu, GGML_TYPE_F32, LLAMA_HOT_SLOTS, 1);
++        g_hot[il] = h;
++    }
++
++    g_buf_gpu = ggml_backend_alloc_ctx_tensors_from_buft(g_ctx_gpu, ggml_backend_dev_buffer_type(gpu));
++    // The lookup tables live on the GPU too: the router runs there, so computing the hot/cold ids
++    // there avoids two extra GPU<->CPU handoffs per layer (measured: ~0.14 ms per layer per token).
++    g_buf_cpu = ggml_backend_alloc_ctx_tensors_from_buft(g_ctx_cpu, ggml_backend_dev_buffer_type(gpu));
++    GGML_ASSERT(g_buf_gpu && g_buf_cpu);
++    ggml_backend_buffer_set_usage(g_buf_gpu, GGML_BACKEND_BUFFER_USAGE_WEIGHTS);
++    // Mark the lookup tables as weights too, so the scheduler runs their ops where they live.
++    ggml_backend_buffer_set_usage(g_buf_cpu, GGML_BACKEND_BUFFER_USAGE_WEIGHTS);
++
++    for (auto & [il, experts] : want) {
++        llama_layer & L = layers.at(il);
++        llama_hot_layer & h = g_hot[il];
++        const int k = h.k;
++        const int n_expert = (int) L.ffn_up_exps->ne[2];
++        std::vector<float> is_hot(n_expert, 0.0f), hot_pos(n_expert, 0.0f), cold_id(n_expert, 0.0f);
++        std::vector<int32_t> map_cold(n_expert);
++        std::vector<float> dummy(LLAMA_HOT_SLOTS), hot_ref(LLAMA_HOT_SLOTS);
++        ggml_tensor * src[3] = { L.ffn_up_exps, L.ffn_gate_exps, L.ffn_down_exps };
++        ggml_tensor * dst[3] = { h.up, h.gate, h.down };
++        // slots 0..k-1: the hot experts; k..k+slots-1: dummies (copies of the first hot expert,
++        // always used with weight 0)
++        for (int j = 0; j < k + LLAMA_HOT_SLOTS; ++j) {
++            const int e = experts[j < k ? j : 0];
++            if (j < k) {
++                is_hot[e] = 1.0f;
++                hot_pos[e] = (float) j;
++            }
++            for (int t = 0; t < 3; ++t) {
++                std::vector<uint8_t> tmp(src[t]->nb[2]);
++                ggml_backend_tensor_get(src[t], tmp.data(), (size_t) e * src[t]->nb[2], tmp.size());
++                ggml_backend_tensor_set(dst[t], tmp.data(), (size_t) j * dst[t]->nb[2], tmp.size());
++            }
++        }
++        int cold = stand_in.count(il) ? stand_in[il] : -1;
++        for (int e = 0; cold < 0 && e < n_expert; ++e) {
++            if (is_hot[e] == 0.0f) {
++                cold = e;
++            }
++        }
++        for (int e = 0; e < n_expert; ++e) {
++            map_cold[e] = is_hot[e] != 0.0f ? cold : e;
++            cold_id[e]  = is_hot[e] != 0.0f ? 0.0f : (float) e;
++        }
++        for (int s = 0; s < LLAMA_HOT_SLOTS; ++s) {
++            dummy[s]   = (float) (k + s);
++            hot_ref[s] = (float) experts[s];
++        }
++        ggml_backend_tensor_set(h.is_hot,   is_hot.data(),   0, n_expert * sizeof(float));
++        ggml_backend_tensor_set(h.hot_pos,  hot_pos.data(),  0, n_expert * sizeof(float));
++        ggml_backend_tensor_set(h.cold_id,  cold_id.data(),  0, n_expert * sizeof(float));
++        ggml_backend_tensor_set(h.map_cold, map_cold.data(), 0, n_expert * sizeof(int32_t));
++        ggml_backend_tensor_set(h.dummy,    dummy.data(),    0, LLAMA_HOT_SLOTS * sizeof(float));
++        ggml_backend_tensor_set(h.hot_ref,  hot_ref.data(),  0, LLAMA_HOT_SLOTS * sizeof(float));
++    }
++    LLAMA_LOG_INFO("%s: %zu layers with hot experts, %.1f MiB on %s\n", __func__, g_hot.size(),
++        ggml_backend_buffer_get_size(g_buf_gpu) / 1024.0 / 1024.0, ggml_backend_dev_name(gpu));
++}
++
++const llama_hot_layer * llama_hot_experts_get(int il) {
++    auto it = g_hot.find(il);
++    return it == g_hot.end() ? nullptr : &it->second;
++}
+diff --git 1/src/llama-hot-experts.h 2/src/llama-hot-experts.h
+new file mode 100644
+index 0000000..104debc
+--- /dev/null
++++ 2/src/llama-hot-experts.h
+@@ -0,0 +1,39 @@
++#pragma once
++
++// PROTOTYPE (moe-offload phase 2): hot experts on the GPU, the rest in RAM.
++//
++// With LLAMA_HOT_EXPERTS=<file> set, after loading the model the experts listed in <file>
++// ("<layer> <expert> <expert> ..." per line) are copied from the RAM-resident expert tensors
++// into a GPU buffer. build_moe_ffn then sends each token's picks two ways: hot picks to the
++// GPU copy, cold picks to the RAM tensors. Unused slots on each side point at one expert with
++// weight 0, so each side only does real work for its own picks. The full expert tensors stay
++// as they are, so the model file and the routing are unchanged.
++
++#include "ggml.h"
++
++#include <vector>
++
++struct llama_layer;
++
++struct llama_hot_layer {
++    int k = 0;                        // hot experts; the GPU copy has k + LLAMA_HOT_SLOTS experts
++    ggml_tensor * up       = nullptr; // [n_embd, n_ff, k + slots] hot experts, then dummies, on the GPU
++    ggml_tensor * gate     = nullptr;
++    ggml_tensor * down     = nullptr;
++    ggml_tensor * is_hot   = nullptr; // F32 [1, n_expert]: 1 for hot experts
++    ggml_tensor * hot_pos  = nullptr; // F32 [1, n_expert]: hot expert -> its slot in the GPU copy, else 0
++    ggml_tensor * cold_id  = nullptr; // F32 [1, n_expert]: cold expert -> itself, else 0
++    ggml_tensor * map_cold = nullptr; // I32 [1, n_expert]: cold -> itself, hot -> one cold stand-in
++    ggml_tensor * dummy    = nullptr; // F32 [slots, 1]: k + slot, the per-slot dummy in the GPU copy
++    ggml_tensor * hot_ref  = nullptr; // F32 [slots, 1]: a different hot expert id per slot
++};
++
++// Expert kernels on the GPU (MMQ) assume a token lists each expert at most once, so unused
++// slots get one distinct stand-in per slot position rather than all the same one.
++constexpr int LLAMA_HOT_SLOTS = 8;
++
++// Called once after the model weights are loaded. No-op without LLAMA_HOT_EXPERTS.
++void llama_hot_experts_load(std::vector<llama_layer> & layers);
++
++// The hot copy for layer il, or nullptr.
++const llama_hot_layer * llama_hot_experts_get(int il);

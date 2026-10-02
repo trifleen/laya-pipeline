@@ -1,0 +1,21 @@
+{
+ "baseline": {
+  "layers": 0,
+  "share_on_gpu": 0.0,
+  "tok_s": 42.4
+ },
+ "8layers-k39": {
+  "layers": 8,
+  "k": 39,
+  "vram_mb": 567,
+  "share_on_gpu": 0.062,
+  "tok_s": 44.0
+ },
+ "all-k39": {
+  "layers": 40,
+  "k": 39,
+  "vram_mb": 2834,
+  "share_on_gpu": 0.307,
+  "tok_s": 51.8
+ }
+}
